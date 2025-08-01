@@ -85,7 +85,7 @@ def main():
         line = file.readline()
 
         while line != "":
-            if "S" in line:
+            if line.startswith("S"):
                 strings = line.split("\t")
 
                 record = SeqRecord(
