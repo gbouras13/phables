@@ -180,6 +180,11 @@ The following postprocessing steps will be run and their corresponding files and
 * Obtain read counts for resolved genomes and unresolved edges - `sample_genome_read_counts.tsv`
 * Obtain mean coverage of resolved genomes and unresolved edges - `sample_genome_mean_coverage.tsv`
 * Obtain RPKM coverage of resolved genomes and unresolved edges - `sample_genome_rpkm.tsv`
+* Generate a multiple sequence alignment of the resolved genomes - `genomes_aligned.fasta`
+* Generate a phylogenetic tree of the resolved genomes - `genomes_phylogenetic_tree.tree`
+
+!!! note
+    The tree file `genomes_phylogenetic_tree.tree` is in newick format and can be visualised by tools such as (iTOL (Interactive Tree of Life))[https://itol.embl.de/].
 
 
 ## Step-wise usage
