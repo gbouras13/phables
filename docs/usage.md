@@ -183,8 +183,7 @@ The following postprocessing steps will be run and their corresponding files and
 * Generate a multiple sequence alignment of the resolved genomes - `genomes_aligned.fasta`
 * Generate a phylogenetic tree of the resolved genomes - `genomes_phylogenetic_tree.tree`
 
-!!! note
-    The tree file `genomes_phylogenetic_tree.tree` is in newick format and can be visualised by tools such as (iTOL (Interactive Tree of Life))[https://itol.embl.de/].
+**Note:** The tree file `genomes_phylogenetic_tree.tree` is in newick format and can be visualised by tools such as [iTOL (Interactive Tree of Life)](https://itol.embl.de/).
 
 
 ## Step-wise usage
