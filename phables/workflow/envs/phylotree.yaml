@@ -1,0 +1,10 @@
+name: phylotree
+channels:
+  - bioconda
+dependencies:
+  - python>=3.11, <3.14
+  - mafft
+  - cogent3
+  - pip
+  - pip:
+    - piqtree

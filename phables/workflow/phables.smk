@@ -84,3 +84,7 @@ include: os.path.join("rules", "phables.smk")
 
 # Step 6: Postprocess genomes
 include: os.path.join("rules", "postprocess.smk")
+
+
+# Step 7: Build phylogenetic tree of genomes
+include: os.path.join("rules", "phylotree.smk")

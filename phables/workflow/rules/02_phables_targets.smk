@@ -42,4 +42,8 @@ phablesTargets.append(COMP_PHROGS)
 
 """POSTPROCESSING TARGETS"""
 GENOME_READ_COUNTS = os.path.join(OUTDIR, "postprocess", "sample_genome_read_counts.tsv")
+ALIGNED_GENOMES = os.path.join(OUTDIR, "postprocess", "genomes_aligned.fasta")
+TREE_FILE = os.path.join(OUTDIR, "postprocess", "genomes_phylogenetic_tree.tree")
 postprocessTargets.append(GENOME_READ_COUNTS)
+postprocessTargets.append(ALIGNED_GENOMES)
+postprocessTargets.append(TREE_FILE)
