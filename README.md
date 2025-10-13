@@ -155,12 +155,18 @@ If you use Phables in your work, please cite Phables as,
 
 Also, please cite the following tools/databases used by Phables.
 
-* Roach MJ, Pierce-Ward NT, Suchecki R, Mallawaarachchi V, Papudeshi B, et al. Ten simple rules and a template for creating workflows-as-applications. PLOS Computational Biology 18(12) (2022): e1010705. [https://doi.org/10.1371/journal.pcbi.1010705](https://doi.org/10.1371/journal.pcbi.1010705)
-* Terzian P, Olo Ndela E, Galiez C, Lossouarn J, Pérez Bucio RE, Mom R, Toussaint A, Petit MA, Enault F. PHROG: families of prokaryotic virus proteins clustered using remote homology. NAR Genomics and Bioinformatics, Volume 3, Issue 3, lqab067 (2021). [https://doi.org/10.1093/nargab/lqab067](https://doi.org/10.1093/nargab/lqab067)
-* Steinegger M, Söding J. MMseqs2 enables sensitive protein sequence searching for the analysis of massive data sets. Nat Biotechnol 35, 1026–1028 (2017). [https://doi.org/10.1038/nbt.3988](https://doi.org/10.1038/nbt.3988)
+* Roach MJ, Pierce-Ward NT, Suchecki R, et al. Ten simple rules and a template for creating workflows-as-applications. PLOS Computational Biology 18(12) (2022): e1010705. [https://doi.org/10.1371/journal.pcbi.1010705](https://doi.org/10.1371/journal.pcbi.1010705)
+* Terzian P, Olo Ndela E, Galiez C, et al. PHROG: families of prokaryotic virus proteins clustered using remote homology. NAR Genomics and Bioinformatics, Volume 3, Issue 3, lqab067 (2021). [https://doi.org/10.1093/nargab/lqab067](https://doi.org/10.1093/nargab/lqab067)
+* Steinegger M and Söding J. MMseqs2 enables sensitive protein sequence searching for the analysis of massive data sets. Nat Biotechnol 35, 1026–1028 (2017). [https://doi.org/10.1038/nbt.3988](https://doi.org/10.1038/nbt.3988)
 * Li H. Minimap2: pairwise alignment for nucleotide sequences. Bioinformatics, 34:3094-3100 (2018). [https://doi.org/10.1093/bioinformatics/bty191](https://doi.org/10.1093/bioinformatics/bty191)
 * Li H, Handsaker B, Wysoker A, Fennell T, Ruan J, Homer N, Marth G, Abecasis G, Durbin R, 1000 Genome Project Data Processing Subgroup. The Sequence Alignment/Map format and SAMtools, Bioinformatics, Volume 25, Issue 16, Pages 2078–2079 (2009). [https://doi.org/10.1093/bioinformatics/btp352](https://doi.org/10.1093/bioinformatics/btp352)
-* Woodcroft BJ, Newell R, CoverM: Read coverage calculator for metagenomics (2017). [https://github.com/wwood/CoverM](https://github.com/wwood/CoverM)
-* Roach, M. J., Hart, B. J., Beecroft, S. J., Papudeshi, B., Inglis, L. K., Grigson, S. R., Mallawaarachchi, V., Bouras, G., & Edwards, R. A. Koverage: Read-coverage analysis for massive (meta)genomics datasets. Journal of Open Source Software, 9(94), 6235, (2024). [https://doi.org/10.21105/joss.06235](https://doi.org/10.21105/joss.06235)
+* Woodcroft BJ and Newell R. CoverM: Read coverage calculator for metagenomics (2017). [https://github.com/wwood/CoverM](https://github.com/wwood/CoverM)
+* Roach, M. J., Hart, B. J., Beecroft, S. J., et al. Koverage: Read-coverage analysis for massive (meta)genomics datasets. Journal of Open Source Software, 9(94), 6235, (2024). [https://doi.org/10.21105/joss.06235](https://doi.org/10.21105/joss.06235)
+* Kazutaka Katoh, Kazuharu Misawa, Kei‐ichi Kuma, and Takashi Miyata. MAFFT: a novel method for rapid multiple sequence alignment based on fast Fourier transform. Nucleic Acids Research, Volume 30, Issue 14, Pages 3059–3066, (2002).
+* Kazutaka Katoh and Daron M. Standley. MAFFT Multiple Sequence Alignment Software Version 7: Improvements in Performance and Usability. Molecular Biology and Evolution, Volume 30, Issue 4, Pages 772–780 (2013).
+*  Robert Neil McArthur, Thomas King-Fung Wong, Yapeng Lang, et al. piqtree: A Python Package for Seamless Phylogenetic Inference with IQ-TREE. bioRxiv 2025.07.13.664626; doi: https://doi.org/10.1101/2025.07.13.664626.
+* Lam-Tung Nguyen, Heiko A. Schmidt, Arndt von Haeseler and Bui Quang Minh. IQ-TREE: A Fast and Effective Stochastic Algorithm for Estimating Maximum-Likelihood Phylogenies. Molecular Biology and Evolution, Volume 32, Issue 1, Pages 268–274, (2015).
+* Subha Kalyaanamoorthy, Bui Quang Minh, Thomas K F Wong, et al. ModelFinder: fast model selection for accurate phylogenetic estimates. Nature Methods volume 14, pages587–589 (2017).
 * Hagberg AA, Schult DA, and Swart PJ. Exploring network structure, dynamics, and function using NetworkX. In Proceedings of the 7th Python in Science Conference (SciPy2008), Gäel Varoquaux, Travis Vaught, and Jarrod Millman (Eds), (Pasadena, CA USA), pp. 11–15 (2008).
 * Gurobi Optimization. [https://www.gurobi.com/](https://www.gurobi.com/).
+* Cogent3. [https://cogent3.org/](https://cogent3.org/)
