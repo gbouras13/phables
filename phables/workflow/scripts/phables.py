@@ -3,25 +3,14 @@
 import logging
 import time
 
-from phables_utils import (
-    component_utils,
-    edge_graph_utils,
-    gene_utils,
-    long_utils,
-    short_utils,
-)
-from phables_utils.coverage_utils import (
-    get_junction_pe_coverage,
-    get_sub_path_coverage,
-    get_unitig_coverage,
-)
-from phables_utils.output_utils import (
-    init_files,
-    write_component_info,
-    write_component_phrog_info,
-    write_res_genome_info,
-    write_unitigs,
-)
+from phables_utils import (component_utils, edge_graph_utils, gene_utils,
+                           long_utils, short_utils)
+from phables_utils.coverage_utils import (get_junction_pe_coverage,
+                                          get_sub_path_coverage,
+                                          get_unitig_coverage)
+from phables_utils.output_utils import (init_files, write_component_info,
+                                        write_component_phrog_info,
+                                        write_res_genome_info, write_unitigs)
 
 __author__ = "Vijini Mallawaarachchi"
 __copyright__ = "Copyright 2022, Phables Project"

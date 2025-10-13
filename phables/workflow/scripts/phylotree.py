@@ -59,7 +59,9 @@ def main():
 
     # Reconstruct a phylogenetic tree with IQ-TREE
     logger.info(f"Building phylogenetic tree using model: {results.best_bic}")
-    tree = piqtree.build_tree(aln, results.best_bic, rand_seed=seed, num_threads=nthreads)
+    tree = piqtree.build_tree(
+        aln, results.best_bic, rand_seed=seed, num_threads=nthreads
+    )
 
     # Write tree to newick file
     tree.write(output)

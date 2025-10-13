@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 
-"""combine_cov.py: Combine multiple coverage files of samples.
-
-"""
+"""combine_cov.py: Combine multiple coverage files of samples."""
 
 import glob
 import logging
