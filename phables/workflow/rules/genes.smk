@@ -19,8 +19,7 @@ if GC == "pyrodigal-gv":
         threads:
             config["resources"]["jobCPU"]
         resources:
-            mem_mb = config["resources"]["jobMem"],
-            mem = str(config["resources"]["jobMem"]) + "MB"
+            mem_mb = config["resources"]["jobMem"]
         output:
             faa = PROTEINS_FILE
         log:
@@ -38,8 +37,7 @@ else:
         threads:
             config["resources"]["jobCPU"]
         resources:
-            mem_mb = config["resources"]["jobMem"],
-            mem = str(config["resources"]["jobMem"]) + "MB"
+            mem_mb = config["resources"]["jobMem"]
         output:
             faa = PROTEINS_FILE
         params:
@@ -147,8 +145,7 @@ if PD == "prostt5-foldseek":
             threads:
                 config["resources"]["jobCPU"]
             resources:
-                mem_mb = config["resources"]["jobMem"],
-                mem = str(config["resources"]["jobMem"]) + "MB"
+                mem_mb = config["resources"]["jobMem"]
             output:
                 threedi = QUERY_3DI
             params:
@@ -175,8 +172,7 @@ if PD == "prostt5-foldseek":
             threads:
                 config["resources"]["jobCPU"]
             resources:
-                mem_mb = config["resources"]["jobMem"],
-                mem = str(config["resources"]["jobMem"]) + "MB"
+                mem_mb = config["resources"]["jobMem"]
             output:
                 threedi = QUERY_3DI
             params:
@@ -254,8 +250,7 @@ if PD == "prostt5-foldseek":
         threads:
             config["resources"]["jobCPU"]
         resources:
-            mem_mb = config["resources"]["jobMem"],
-            mem = str(config["resources"]["jobMem"]) + "MB"
+            mem_mb = config["resources"]["jobMem"]
         output:
             os.path.join(OUTDIR, "preprocess", "hallmark_hits.tsv")
         params:
