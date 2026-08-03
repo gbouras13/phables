@@ -131,31 +131,76 @@ if PD == "prostt5-foldseek":
     QUERY_3DI = os.path.join(OUTDIR, "preprocess", "hallmark", "proteins_3di.fasta")
 
 
-    rule predict_3di:
-        input:
-            faa = PROTEINS_FILE,
-        threads:
-            config["resources"]["jobCPU"]
-        resources:
-            mem_mb = config["resources"]["jobMem"],
-            mem = str(config["resources"]["jobMem"]) + "MB"
-        output:
-            threedi = QUERY_3DI
-        params:
-            checkpoint = config["prostt5_checkpoint"],
-            model_name = config["prostt5_model"],
-            model_dir = config["prostt5_model_dir"],
-            half_precision = config["prostt5_half_precision"],
-            cpu = config["prostt5_cpu"],
-            max_residues = config["prostt5_max_residues"],
-            max_seq_len = config["prostt5_max_seq_len"],
-            max_batch = config["prostt5_max_batch"],
-        log:
-            os.path.join(LOGSDIR, "predict_3di.log")
-        conda:
-            os.path.join("..", "envs", "prostt5.yaml")
-        script:
-            os.path.join("..", "scripts", "predict_3di.py")
+    if PROSTT5_CONTAINER:
+
+        # container:-only, deliberately with no conda: alongside it. Snakemake's
+        # documented way to combine the two ("Ad-hoc combination of Conda package
+        # management with containers") builds a fresh, isolated conda env *inside*
+        # the container rather than exposing what the image already has installed
+        # -- which would just reinstall a second, redundant torch and ignore the
+        # image's own verified-working one (e.g. phold's own container, which
+        # already bundles pholdlib + a working torch/ROCm stack for Setonix, per
+        # the same logic phold's own Snakemake rules use). Needs
+        # `--use-singularity` passed through phables' snake_args passthrough --
+        # --use-conda alone won't honour this directive.
+        rule predict_3di:
+            input:
+                faa = PROTEINS_FILE,
+            threads:
+                config["resources"]["jobCPU"]
+            resources:
+                mem_mb = config["resources"]["jobMem"],
+                mem = str(config["resources"]["jobMem"]) + "MB"
+            output:
+                threedi = QUERY_3DI
+            params:
+                checkpoint = config["prostt5_checkpoint"],
+                model_name = config["prostt5_model"],
+                model_dir = config["prostt5_model_dir"],
+                half_precision = config["prostt5_half_precision"],
+                cpu = config["prostt5_cpu"],
+                max_residues = config["prostt5_max_residues"],
+                max_seq_len = config["prostt5_max_seq_len"],
+                max_batch = config["prostt5_max_batch"],
+            log:
+                os.path.join(LOGSDIR, "predict_3di.log")
+            container:
+                PROSTT5_CONTAINER
+            script:
+                os.path.join("..", "scripts", "predict_3di.py")
+
+    else:
+
+        rule predict_3di:
+            input:
+                faa = PROTEINS_FILE,
+            threads:
+                config["resources"]["jobCPU"]
+            resources:
+                mem_mb = config["resources"]["jobMem"],
+                mem = str(config["resources"]["jobMem"]) + "MB"
+            output:
+                threedi = QUERY_3DI
+            params:
+                checkpoint = config["prostt5_checkpoint"],
+                model_name = config["prostt5_model"],
+                model_dir = config["prostt5_model_dir"],
+                half_precision = config["prostt5_half_precision"],
+                cpu = config["prostt5_cpu"],
+                max_residues = config["prostt5_max_residues"],
+                max_seq_len = config["prostt5_max_seq_len"],
+                max_batch = config["prostt5_max_batch"],
+            log:
+                os.path.join(LOGSDIR, "predict_3di.log")
+            conda:
+                # gpu_backend selects which torch build this env solves against --
+                # cpu/cuda/rocm need different PyTorch wheels (conda envs are
+                # solved once from a static file, so this has to be three files,
+                # not one file with a runtime switch). See the individual env
+                # files for what each backend actually needs and why.
+                os.path.join("..", "envs", f"prostt5-{GPU_BACKEND}.yaml")
+            script:
+                os.path.join("..", "scripts", "predict_3di.py")
 
 
     rule build_hallmark_query_db:
@@ -174,10 +219,40 @@ if PD == "prostt5-foldseek":
             os.path.join("..", "scripts", "build_foldseek_query_db.py")
 
 
+    if FOLDSEEK_GPU and GPU_BACKEND != "cuda":
+        raise ValueError(
+            "foldseek_gpu is True but gpu_backend is "
+            f"'{GPU_BACKEND}', not 'cuda'. foldseek's --gpu mode is CUDA-only "
+            "(confirmed against foldseek's own README/source -- there is no ROCm "
+            "or Metal build); it cannot accelerate on an AMD (ROCm, e.g. Setonix's "
+            "MI250X) or CPU backend. Set gpu_backend: cuda, or turn foldseek_gpu off."
+        )
+
+    # Bioconda's foldseek is CPU-only. GPU search needs foldseek's separate
+    # foldseek-linux-gpu.tar.gz build (not a conda package at all -- see
+    # foldseek's README "Installation" section) and a target DB reformatted
+    # with `foldseek makepaddedseqdb`, conventionally named with a `_gpu`
+    # suffix -- both details taken directly from phold's own GPU search code
+    # (phold/features/run_foldseek.py), which this mirrors rather than
+    # reimplementing from the foldseek README alone (the README suggests one
+    # padded DB works for both CPU and GPU; phold's actual working code
+    # maintains a separate _gpu-suffixed DB, which is the safer bet to follow
+    # here since it's the reference implementation in this ecosystem).
+    #
+    # NOT independently verified against real CUDA hardware -- this machine
+    # has neither an NVIDIA GPU nor Setonix access. The plumbing (flags, DB
+    # suffix, env selection) is wired correctly per phold's own precedent;
+    # whether it actually accelerates anything is unconfirmed.
+    HALLMARK_TARGET_DB = (
+        f"{config['hallmark_db']}_gpu" if FOLDSEEK_GPU else config["hallmark_db"]
+    )
+    _foldseek_gpu_flags = "--gpu 1 --prefilter-mode 1" if FOLDSEEK_GPU else ""
+
+
     rule scan_hallmark:
         input:
             db = os.path.join(OUTDIR, "preprocess", "hallmark", "query_db"),
-            hallmark_db = config["hallmark_db"],
+            hallmark_db = HALLMARK_TARGET_DB,
         threads:
             config["resources"]["jobCPU"]
         resources:
@@ -189,6 +264,7 @@ if PD == "prostt5-foldseek":
             query_prefix = os.path.join(OUTDIR, "preprocess", "hallmark", "query_db"),
             result = os.path.join(OUTDIR, "preprocess", "hallmark", "result"),
             tmp = os.path.join(OUTDIR, "preprocess", "hallmark", "tmp"),
+            gpu_flags = _foldseek_gpu_flags,
         log:
             os.path.join(LOGSDIR, "scan_hallmark.log")
         conda:
@@ -196,7 +272,7 @@ if PD == "prostt5-foldseek":
         shell:
             """
             foldseek search {params.query_prefix} {input.hallmark_db} {params.result} {params.tmp} \
-                --threads {threads} -s 7 -e {config[hallmark_evalue]} > {log}
+                --threads {threads} -s 7 -e {config[hallmark_evalue]} {params.gpu_flags} > {log}
             foldseek convertalis {params.query_prefix} {input.hallmark_db} {params.result} {output} \
                 --format-output query,target,evalue,bits,fident --threads {threads} >> {log}
             rm -rf {params.tmp}

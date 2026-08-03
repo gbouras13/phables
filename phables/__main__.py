@@ -179,6 +179,32 @@ def run_options(func):
             show_default=True,
         ),
         click.option(
+            "--gpu-backend",
+            default="cpu",
+            required=False,
+            help=(
+                "PyTorch build for the ProstT5 conda env: cpu, cuda, or rocm "
+                "(e.g. Setonix's MI250X nodes). Independent of --prostt5-cpu, "
+                "which forces ProstT5 onto the CPU device at runtime even "
+                "inside a GPU-capable env -- this controls which env gets built"
+            ),
+            type=click.Choice(["cpu", "cuda", "rocm"]),
+            show_default=True,
+        ),
+        click.option(
+            "--foldseek-gpu",
+            is_flag=True,
+            default=False,
+            required=False,
+            help=(
+                "use foldseek's CUDA GPU search mode for the hallmark scan "
+                "(requires --gpu-backend cuda, a CUDA-capable foldseek build "
+                "on PATH -- not the plain bioconda package -- and a "
+                "*_gpu-suffixed, makepaddedseqdb-prepared hallmark DB)"
+            ),
+            show_default=True,
+        ),
+        click.option(
             "--hallmark-db",
             default=None,
             required=False,
@@ -267,6 +293,18 @@ def run_options(func):
             help="max sequences per ProstT5 batch -- device-specific, tune per GPU",
             type=int,
             show_default=True,
+        ),
+        click.option(
+            "--prostt5-container",
+            default=None,
+            required=False,
+            help=(
+                "container image with pholdlib + torch already installed (e.g. "
+                "phold's own image), used instead of a conda env for predict_3di. "
+                "Needs --use-singularity passed as a trailing snakemake arg -- "
+                "--use-conda alone won't honour it. Overrides --gpu-backend for "
+                "this rule."
+            ),
         ),
         click.option(
             "--evalue",

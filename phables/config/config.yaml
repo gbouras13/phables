@@ -45,6 +45,27 @@ prostt5_model: Rostlab/ProstT5_fp16
 prostt5_model_dir:
 prostt5_half_precision: True
 prostt5_cpu: False
+# Which PyTorch build predict_3di's conda env solves: cpu, cuda, or rocm (e.g.
+# Setonix's MI250X nodes). Independent of prostt5_cpu above, which forces
+# ProstT5 onto the CPU device at *runtime* even inside a GPU-capable env --
+# gpu_backend controls which env gets *built*. foldseek_gpu (below) is
+# separate again: foldseek's own --gpu mode is CUDA-only, so it stays off
+# regardless of gpu_backend unless explicitly requested and gpu_backend=cuda.
+gpu_backend: cpu
+foldseek_gpu: False
+# Optional: a container image (e.g. "docker://quay.io/gbouras13/phold:<tag>")
+# that already has pholdlib + torch/ROCm baked in. When set, predict_3di runs
+# with ONLY `container:` -- no `conda:` -- so it uses the container's own
+# Python/torch directly. Deliberately not combined with a `conda:` directive:
+# Snakemake's documented "conda inside container" feature builds a *separate*,
+# isolated conda env inside the container rather than exposing what's already
+# installed there, which would defeat the point of pointing at an image whose
+# torch/ROCm stack is already verified working (e.g. on Setonix). When empty,
+# falls back to the conda envs selected by gpu_backend above.
+# Needs `--use-singularity` (Apptainer/Singularity on most HPC, incl. Setonix)
+# passed through phables' existing snake_args passthrough, since --use-conda
+# alone won't honour the container: directive.
+prostt5_container:
 # Batch limits are device-specific -- the defaults are conservative CPU/laptop-MPS
 # values, not tuned for any particular GPU. Retune per device (phold's autotune.py
 # is the reference approach) rather than trusting these at scale.
