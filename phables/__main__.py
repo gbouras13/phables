@@ -159,6 +159,14 @@ def run_options(func):
             show_default=True,
         ),
         click.option(
+            "--genecaller",
+            default="pyrodigal-gv",
+            required=False,
+            help="gene caller to use for unitig gene prediction",
+            type=click.Choice(["pyrodigal-gv", "fraggenescan"]),
+            show_default=True,
+        ),
+        click.option(
             "--evalue",
             default=1e-10,
             required=False,

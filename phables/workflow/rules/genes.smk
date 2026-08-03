@@ -1,11 +1,63 @@
 """
-Use FragGeneScan and HMMER to scan for bacterial single-copy marker genes in unitigs.
-User mmseqs2 to scan for PHROGs in unitigs.
+Call genes on unitigs, then use HMMER to scan for bacterial single-copy marker genes.
+Use mmseqs2 to scan for PHROGs in unitigs.
+
+Gene calling is a separate rule from the marker-gene search so the caller can be
+swapped via --genecaller without touching anything downstream. Both callers emit
+the same `{seqid}_{start}_{end}_{strand}` protein id convention, which
+gene_utils.get_smg_unitigs relies on to recover the unitig name.
 """
+
+PROTEINS_FILE = EDGES_FILE + ".frag.faa"
+
+
+if GC == "pyrodigal-gv":
+
+    rule call_genes:
+        input:
+            genome = EDGES_FILE,
+        threads:
+            config["resources"]["jobCPU"]
+        resources:
+            mem_mb = config["resources"]["jobMem"],
+            mem = str(config["resources"]["jobMem"]) + "MB"
+        output:
+            faa = PROTEINS_FILE
+        log:
+            os.path.join(LOGSDIR, "gene_call_pyrodigal_gv.log")
+        conda:
+            os.path.join("..", "envs", "genecall.yaml")
+        script:
+            os.path.join("..", "scripts", "gene_caller.py")
+
+else:
+
+    rule call_genes:
+        input:
+            genome = EDGES_FILE,
+        threads:
+            config["resources"]["jobCPU"]
+        resources:
+            mem_mb = config["resources"]["jobMem"],
+            mem = str(config["resources"]["jobMem"]) + "MB"
+        output:
+            faa = PROTEINS_FILE
+        params:
+            frag = EDGES_FILE + ".frag",
+        log:
+            out = os.path.join(LOGSDIR, "gene_call_fraggenescan_out.log"),
+            err = os.path.join(LOGSDIR, "gene_call_fraggenescan_err.log"),
+        conda:
+            os.path.join("..", "envs", "smg.yaml")
+        shell:
+            """
+                run_FragGeneScan.pl -genome={input.genome} -out={params.frag} -complete=0 -train=complete -thread={threads} 1>{log.out} 2>{log.err}
+            """
+
 
 rule scan_smg:
     input:
-        genome = EDGES_FILE,
+        faa = PROTEINS_FILE,
         hmm = os.path.join(DBPATH, "marker.hmm"),
     threads:
         config["resources"]["jobCPU"]
@@ -14,20 +66,14 @@ rule scan_smg:
         mem = str(config["resources"]["jobMem"]) + "MB"
     output:
         hmmout = os.path.join(OUTDIR, "preprocess", "edges.fasta.hmmout")
-    params:
-        frag = EDGES_FILE + ".frag",
-        frag_faa = EDGES_FILE + ".frag.faa",
     log:
-        frag_out=os.path.join(LOGSDIR, "smg_scan_frag_out.log"),
-        frag_err=os.path.join(LOGSDIR, "smg_scan_frag_err.log"),
         hmm_out=os.path.join(LOGSDIR, "smg_scan_hmm_out.log"),
         hmm_err=os.path.join(LOGSDIR, "smg_scan_hmm_err.log")
-    conda: 
+    conda:
         os.path.join("..", "envs", "smg.yaml")
     shell:
         """
-            run_FragGeneScan.pl -genome={input.genome} -out={params.frag} -complete=0 -train=complete -thread={threads} 1>{log.frag_out} 2>{log.frag_err}
-            hmmsearch --domtblout {output.hmmout} --cut_tc --cpu {threads} {input.hmm} {params.frag_faa} 1>{log.hmm_out} 2> {log.hmm_err}
+            hmmsearch --domtblout {output.hmmout} --cut_tc --cpu {threads} {input.hmm} {input.faa} 1>{log.hmm_out} 2> {log.hmm_err}
         """
 
 

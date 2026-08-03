@@ -22,6 +22,7 @@ mincov: 10
 compcount: 200
 maxpaths: 10
 mgfrac: 0.2
+genecaller: pyrodigal-gv
 evalue: 1E-10
 seqidentity: 0.3
 covtol: 100
