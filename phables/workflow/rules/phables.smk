@@ -30,6 +30,10 @@ rule run_phables:
         alpha = AL,
         longreads = LR,
         prefix = PR,
+        phagedetection = PD,
+        hallmark_categories = config["hallmark_categories"],
+        hallmark_evalue = config["hallmark_evalue"],
+        hallmark_minbits = config["hallmark_minbits"],
         output = os.path.join(OUTDIR, "phables"),
         nthreads = config["resources"]["jobCPU"],
         log = os.path.join(LOGSDIR, "phables_output.log")

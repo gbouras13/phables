@@ -28,4 +28,26 @@ seqidentity: 0.3
 covtol: 100
 alpha: 1.2
 longreads: False
-prefix: 
+prefix:
+
+# Phage-gene detection: mmseqs (PHROGs, default) or prostt5-foldseek (structural,
+# see notes/phables_audit.md section 4d in the parent project for the full design).
+# The prostt5-foldseek path needs a prebuilt hallmark structure DB and a ProstT5 CNN
+# checkpoint -- neither is auto-downloaded yet, so both must be supplied explicitly
+# when selecting this path.
+phagedetection: mmseqs
+hallmark_db:
+hallmark_categories:
+hallmark_evalue: 1E-3
+hallmark_minbits: 0
+prostt5_checkpoint:
+prostt5_model: Rostlab/ProstT5_fp16
+prostt5_model_dir:
+prostt5_half_precision: True
+prostt5_cpu: False
+# Batch limits are device-specific -- the defaults are conservative CPU/laptop-MPS
+# values, not tuned for any particular GPU. Retune per device (phold's autotune.py
+# is the reference approach) rather than trusting these at scale.
+prostt5_max_residues: 4000
+prostt5_max_seq_len: 4000
+prostt5_max_batch: 20

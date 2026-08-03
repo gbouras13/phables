@@ -1,0 +1,12 @@
+name: prostt5
+channels:
+  - conda-forge
+dependencies:
+  # Kept separate from the main phables env deliberately: phables.yaml pins
+  # python<3.11 for its own deps, while ProstT5/transformers/torch want newer,
+  # and Setonix's ROCm containers ship newer Python still.
+  - python>=3.10
+  - pip
+  - pip:
+    # pulls in torch, transformers, sentencepiece, h5py, loguru as declared deps
+    - pholdlib>=0.1.2
