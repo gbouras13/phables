@@ -62,8 +62,7 @@ rule scan_smg:
     threads:
         config["resources"]["jobCPU"]
     resources:
-        mem_mb = config["resources"]["jobMem"],
-        mem = str(config["resources"]["jobMem"]) + "MB"
+        mem_mb = config["resources"]["jobMem"]
     output:
         hmmout = os.path.join(OUTDIR, "preprocess", "edges.fasta.hmmout")
     log:
@@ -84,8 +83,7 @@ rule scan_phrogs:
     threads:
         config["resources"]["jobCPU"]
     resources:
-        mem_mb = config["resources"]["jobMem"],
-        mem = str(config["resources"]["jobMem"]) + "MB"
+        mem_mb = config["resources"]["jobMem"]
     output:
         os.path.join(OUTDIR, "preprocess", "phrogs_annotations.tsv")
     params:

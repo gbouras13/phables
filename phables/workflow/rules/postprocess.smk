@@ -24,8 +24,7 @@ rule koverage_genomes:
     threads:
         config["resources"]["jobCPU"]
     resources:
-        mem_mb = config["resources"]["jobMem"],
-        mem = str(config["resources"]["jobMem"]) + "MB"
+        mem_mb = config["resources"]["jobMem"]
     conda:
         os.path.join("..", "envs", "koverage.yaml")
     shell:
