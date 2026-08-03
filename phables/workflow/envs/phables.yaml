@@ -8,16 +8,23 @@ dependencies:
   # old <3.11 upper bound traced to the gurobi conda channel's gurobi>=10.0.0
   # package only ever publishing py310 builds (confirmed via `mamba search -c
   # gurobi`) -- not a real pysam constraint, despite the commit message that
-  # introduced it. With Gurobi gone, the rest of this dependency set solves
-  # cleanly through 3.12 (checked via dry-run); 3.13 has unrelated solver
-  # friction, likely numpy<2.0.0 build lag, so left out for now.
-  - python>=3.10, <3.13
+  # introduced it ("DEV: Update python version to fix pysam version conflict").
+  # With Gurobi gone, no upper bound is needed on that basis. Confirmed (real
+  # build, not just dry-run) 3.10 through 3.13 all solve and import cleanly.
+  - python>=3.10
   - biopython
   - python-igraph
   - pysam
   - networkx>=2.8.6
   - scipy
-  - numpy<2.0.0
+  # Unpinned as of numpy 2.5.1 / pandas 3.0.5. The <2.0.0 pin (GH issue #55,
+  # June 2024) was for a real pandas/numpy-2 ABI break at the time numpy 2.0
+  # first shipped -- pandas has been numpy-2-compatible for well over a year
+  # since. Verified phables' own pandas usage (combine_cov.py,
+  # format_koverage_results.py: DataFrame construction, concat with
+  # axis=1/join="inner", concat-as-append, read_csv/to_csv) against a real
+  # numpy 2.5.1 + pandas 3.0.5 build, not just that the two packages import.
+  - numpy
   - pandas
   - tqdm
   - click
