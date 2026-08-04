@@ -34,6 +34,19 @@ def default_to_output(ctx, param, value):
     return value
 
 
+def create_output_dir(ctx, param, value):
+    """Callback for --output; creates the directory as soon as its value is resolved.
+
+    --output is the first option processed by common_options, before --configfile and
+    --log (both of which use default_to_output above to place themselves inside it).
+    Without this, run/install/test crash before Snakemake ever starts: run_snakemake's
+    own copy_config step opens f"{output}/phables.log" to write its first log message,
+    and FileHandler-style opens don't create missing parent directories.
+    """
+    os.makedirs(value, exist_ok=True)
+    return value
+
+
 def common_options(func):
     """Common command line args
     Define common command line args here, and include them with the @common_options decorator below.
@@ -45,6 +58,7 @@ def common_options(func):
             type=click.Path(dir_okay=True, writable=True, readable=True),
             default="phables.out",
             show_default=True,
+            callback=create_output_dir,
         ),
         click.option(
             "--configfile",
@@ -55,6 +69,16 @@ def common_options(func):
         ),
         click.option(
             "--threads", help="Number of threads to use", default=1, show_default=True
+        ),
+        click.option(
+            "--databases",
+            default=None,
+            required=False,
+            help=(
+                "Path to databases directory "
+                "[default: <install_dir>/databases, i.e. wherever `phables install` put them]"
+            ),
+            type=click.Path(),
         ),
         click.option(
             "--use-conda/--no-use-conda",
