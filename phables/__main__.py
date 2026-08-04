@@ -468,6 +468,11 @@ def install(output, **kwargs):
     run_snakemake(
         # Full path to Snakefile
         snakefile_path=snake_base(os.path.join("workflow", "install.smk")),
+        # Without merge_config, --databases (and any other common_options value)
+        # never reaches install.smk's config -- config['databases'] stays whatever
+        # the config.yaml default is (null), so 00_database_preflight.smk silently
+        # falls back to <repo_root>/databases instead of the path the user passed.
+        merge_config=kwargs,
         **kwargs
     )
 
