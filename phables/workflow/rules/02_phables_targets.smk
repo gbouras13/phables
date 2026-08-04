@@ -51,5 +51,10 @@ GENOME_READ_COUNTS = os.path.join(OUTDIR, "postprocess", "sample_genome_read_cou
 ALIGNED_GENOMES = os.path.join(OUTDIR, "postprocess", "genomes_aligned.fasta")
 TREE_FILE = os.path.join(OUTDIR, "postprocess", "genomes_phylogenetic_tree.tree")
 postprocessTargets.append(GENOME_READ_COUNTS)
-postprocessTargets.append(ALIGNED_GENOMES)
-postprocessTargets.append(TREE_FILE)
+
+# Off by default (--build-tree to enable): MAFFT + IQ-TREE over resolved genomes
+# is slow at metagenome scale (thousands of genomes) and most users want to run
+# phylogenetics as a separate downstream step rather than block every run on it.
+if config["build_tree"]:
+    postprocessTargets.append(ALIGNED_GENOMES)
+    postprocessTargets.append(TREE_FILE)

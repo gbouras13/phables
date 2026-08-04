@@ -180,10 +180,14 @@ The following postprocessing steps will be run and their corresponding files and
 * Obtain read counts for resolved genomes and unresolved edges - `sample_genome_read_counts.tsv`
 * Obtain mean coverage of resolved genomes and unresolved edges - `sample_genome_mean_coverage.tsv`
 * Obtain RPKM coverage of resolved genomes and unresolved edges - `sample_genome_rpkm.tsv`
-* Generate a multiple sequence alignment of the resolved genomes - `genomes_aligned.fasta`
-* Generate a phylogenetic tree of the resolved genomes - `genomes_phylogenetic_tree.tree`
+* (optional, `--build-tree`) Generate a multiple sequence alignment of the resolved genomes - `genomes_aligned.fasta`
+* (optional, `--build-tree`) Generate a phylogenetic tree of the resolved genomes - `genomes_phylogenetic_tree.tree`
 
-**Note:** The tree file `genomes_phylogenetic_tree.tree` is in newick format and can be visualised by tools such as [iTOL (Interactive Tree of Life)](https://itol.embl.de/).
+**Note:** Tree building is off by default -- it's slow at metagenome scale (thousands of
+genomes), so most workflows should run phylogenetics as a separate downstream step on
+`resolved_paths.fasta` instead. Pass `--build-tree` to enable it per-run. The tree file
+`genomes_phylogenetic_tree.tree` is in newick format and can be visualised by tools such as
+[iTOL (Interactive Tree of Life)](https://itol.embl.de/).
 
 
 ## Step-wise usage
