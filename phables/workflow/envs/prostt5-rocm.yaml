@@ -14,4 +14,11 @@ dependencies:
     # before assuming this one is right; it was not verified against any
     # actual ROCm hardware while writing this).
     - --extra-index-url https://download.pytorch.org/whl/rocm6.3
+    # >=2.6 floor: transformers' checkpoint loader refuses torch.load() on any
+    # older torch outright (CVE-2025-32434 hardening in check_torch_load_is_safe),
+    # which broke loading Rostlab/ProstT5_fp16 (no safetensors file). pholdlib's
+    # own torch requirement is unconstrained, so this needs to be explicit here
+    # rather than left to pholdlib's resolution. Confirmed rocm6.3 has torch
+    # wheels >=2.6 (2.7.0 through 2.9.1 at time of writing).
+    - torch>=2.6
     - pholdlib>=0.1.2

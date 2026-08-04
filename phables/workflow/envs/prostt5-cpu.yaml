@@ -13,7 +13,11 @@ dependencies:
   # --extra-index-url approach in prostt5-cuda.yaml's history -- verified via
   # `mamba search -c conda-forge pytorch=*=cpu*` that these tagged builds
   # exist and are current, e.g. 2.9.1 cpu_generic_py310_h55e7c71_2).
-  - pytorch=*=cpu*
+  # >=2.6 floor: transformers' checkpoint loader refuses torch.load() on any
+  # older torch outright (CVE-2025-32434 hardening in check_torch_load_is_safe),
+  # which broke loading Rostlab/ProstT5_fp16 (no safetensors file) when the
+  # bare wildcard let the solver pick something pre-2.6.
+  - pytorch[version=">=2.6",build=cpu*]
   - transformers
   - sentencepiece
   - h5py
