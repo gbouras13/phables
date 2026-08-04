@@ -17,12 +17,18 @@ COVERAGE_PATH = os.path.join(OUTDIR, "preprocess", "coverage_rpkm/")
 preprocessTargets.append(os.path.join(OUTDIR, "preprocess", "coverage.tsv"))
 preprocessTargets.append(os.path.join(OUTDIR, "preprocess", "edges.fasta.hmmout"))
 
-preprocessTargets.append(os.path.join(OUTDIR, "preprocess", "phrogs_annotations.tsv"))
+# Phage-gene detection output path depends on --phage-detection: only whichever one
+# is actually a target gets built (Snakemake is target-driven, not rule-order-driven),
+# so scan_phrogs vs predict_3di/scan_hallmark don't need explicit if/else gating.
+if PD == "prostt5-foldseek":
+    PHROG_ANNOT = os.path.join(OUTDIR, "preprocess", "hallmark_hits.tsv")
+else:
+    PHROG_ANNOT = os.path.join(OUTDIR, "preprocess", "phrogs_annotations.tsv")
+preprocessTargets.append(PHROG_ANNOT)
 
 
 """MISC"""
 COVERAGE_FILE = os.path.join(OUTDIR, "preprocess", "coverage.tsv")
-PHROG_ANNOT = os.path.join(OUTDIR, "preprocess", "phrogs_annotations.tsv")
 SMG_FILE = os.path.join(OUTDIR, "preprocess", "edges.fasta.hmmout")
 GRAPH_FILE = INPUT
 

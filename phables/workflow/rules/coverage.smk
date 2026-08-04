@@ -30,8 +30,7 @@ rule koverage:
     threads:
         config["resources"]["jobCPU"]
     resources:
-        mem_mb = config["resources"]["jobMem"],
-        mem = str(config["resources"]["jobMem"]) + "MB"
+        mem_mb = config["resources"]["jobMem"]
     conda:
         os.path.join("..", "envs", "koverage.yaml")
     shell:
@@ -52,7 +51,12 @@ rule run_combine_cov:
     output:
         os.path.join(OUTDIR, "preprocess", "coverage.tsv")
     shell:
+        # NR>1 skips the header inside awk itself, rather than the old `sed -i '1d'
+        # {input}` which mutated the input in place. That made the rule non-
+        # idempotent: a retry after partial failure would see an already-header-
+        # stripped input, silently drop its first real data row as if it were still
+        # the header, and produce a wrong-but-plausible coverage.tsv rather than
+        # erroring. This version never touches {input} at all.
         """
-        sed -i '1d' {input}
-        awk -F '\t' '{{ sum[$2] += $6 }} END {{ for (key in sum) print key, sum[key] }}' {input} > {output}
+        awk -F '\t' 'NR>1 {{ sum[$2] += $6 }} END {{ for (key in sum) print key, sum[key] }}' {input} > {output}
         """

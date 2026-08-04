@@ -1,0 +1,32 @@
+name: prostt5-cuda
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.10
+  # Build-string wildcard: conda's solver picks a CUDA-tagged pytorch build
+  # (and pulls in the matching cudatoolkit/cudnn/nccl as transitive deps
+  # automatically) rather than this file hardcoding one CUDA minor version
+  # via a pip index URL that needs manual bumping later. Verified via
+  # `mamba search -c conda-forge pytorch=*=cuda*` that these exist and are
+  # current on linux-64 (e.g. 2.9.1 cuda129_generic_py310_h193ef2d_204).
+  - pytorch=*=cuda*
+  - transformers
+  - sentencepiece
+  - h5py
+  - loguru
+  - numpy
+  - protobuf
+  - requests
+  - tqdm
+  - alive-progress
+  - about-time
+  - pip
+  - pip:
+    # pholdlib itself isn't packaged on any conda channel (checked). See
+    # prostt5-cpu.yaml for why this doesn't use --no-deps: it's not
+    # achievable through a conda/mamba pip: section at all (both write it to
+    # a real requirements.txt, and current pip rejects --no-deps as a file
+    # directive). Verified instead that pholdlib's own `torch` requirement is
+    # unconstrained, so this leaves the CUDA-tagged conda build alone.
+    - pholdlib>=0.1.2
