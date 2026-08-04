@@ -183,6 +183,19 @@ def run_options(func):
             show_default=True,
         ),
         click.option(
+            "--build-tree/--no-build-tree",
+            default=False,
+            required=False,
+            help=(
+                "align resolved genomes (MAFFT) and build a phylogenetic tree "
+                "(IQ-TREE via piqtree). Off by default -- slow at metagenome "
+                "scale (thousands of genomes); run phylogenetics as a "
+                "separate step on the resolved genomes instead unless you "
+                "specifically need a per-run tree"
+            ),
+            show_default=True,
+        ),
+        click.option(
             "--genecaller",
             default="pyrodigal-gv",
             required=False,

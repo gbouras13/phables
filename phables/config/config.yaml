@@ -30,6 +30,12 @@ alpha: 1.2
 longreads: False
 prefix:
 
+# Align resolved genomes + build a phylogenetic tree (MAFFT + piqtree/IQ-TREE).
+# Off by default -- slow at metagenome scale (thousands of genomes); run
+# phylogenetics separately on resolved_paths.fasta instead unless a per-run
+# tree is specifically needed.
+build_tree: False
+
 # Phage-gene detection: mmseqs (PHROGs, default) or prostt5-foldseek (structural,
 # see notes/phables_audit.md section 4d in the parent project for the full design).
 # The prostt5-foldseek path needs a prebuilt hallmark structure DB and a ProstT5 CNN
