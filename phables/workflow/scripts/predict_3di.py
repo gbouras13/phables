@@ -70,6 +70,13 @@ def run(
     max_batch=10000,
     mask_threshold=0.0,
 ):
+    if not model_dir:
+        # Snakemake's script: entrypoint passes config["prostt5_model_dir"] straight
+        # through, which is None unless --prostt5-model-dir was explicitly set --
+        # unlike the CLI entrypoint's own --model-dir, which argparse defaults to
+        # this same path. Both entrypoints need the fallback, so it lives here.
+        model_dir = str(Path.home() / ".cache" / "prostt5")
+
     records = list(read_fasta(input_fasta))
     if not records:
         sys.exit(f"No sequences read from {input_fasta}")
