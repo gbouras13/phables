@@ -257,7 +257,7 @@ def run_options(func):
         ),
         click.option(
             "--hallmark-evalue",
-            default=1e-3,
+            default=1e-8,
             required=False,
             help="maximum e-value for hallmark structural hits",
             type=float,

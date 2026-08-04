@@ -44,7 +44,7 @@ build_tree: False
 phagedetection: mmseqs
 hallmark_db:
 hallmark_categories:
-hallmark_evalue: 1E-3
+hallmark_evalue: 1E-8
 hallmark_minbits: 0
 prostt5_checkpoint:
 prostt5_model: Rostlab/ProstT5_fp16
