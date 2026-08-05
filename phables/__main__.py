@@ -146,7 +146,12 @@ def run_options(func):
             "--minlength",
             default=2000,
             required=False,
-            help="minimum length of circular unitigs to consider",
+            help=(
+                "minimum length of circular unitigs to consider as standalone "
+                "genomes, and the minimum length for any resolved LINEAR path "
+                "to be kept -- circular paths are exempt regardless of length, "
+                "since a closed cycle is itself strong completeness evidence"
+            ),
             type=int,
             show_default=True,
         ),

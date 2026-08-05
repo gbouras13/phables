@@ -1436,6 +1436,20 @@ def resolve_short(
                 )
                 all_components.append(genome_comp)
 
+            # Linear paths get the same length floor single-unitig components already
+            # get in component_utils.get_components (edges_lengths[unitig] > minlength,
+            # there called cicular_len) -- multi-unitig linear paths had no length gate
+            # at all, so any component with a single phage-hallmark hit produced a
+            # "resolved genome" regardless of how short the MFD-resolved path actually
+            # came out. Circular paths are exempt: a closed cycle is itself strong
+            # completeness evidence independent of length, matching why the
+            # single-unitig gate only ever applied to that case in the first place.
+            final_genomic_paths = [
+                p
+                for p in final_genomic_paths
+                if not p.bubble_case.endswith("_linear") or p.length > minlength
+            ]
+
             if len(final_genomic_paths) > 0:
                 resolved_components.add(my_count)
                 all_resolved_paths += final_genomic_paths
