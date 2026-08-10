@@ -27,11 +27,29 @@ for column 7 -- that's actually Covered_fraction (Koverage's real 6th --methods
 value, confirmed above). Harmless either way: only column 6 (Mean) is consumed
 by the awk below, per notes/phables_audit.md §3.2.
 
-Also note: like Koverage's own rule, this always maps with -ax sr (short-read
-preset) regardless of `config["longreads"]` -- a pre-existing gap inherited
-unchanged from Koverage, not introduced by this swap. Long-read runs' unitig
-coverage here is thus mapped with a short-read minimap2 preset; worth a
-follow-up, out of scope for this change.
+Note: unlike Koverage's own rule (which always maps with -ax sr regardless of
+read type -- confirmed against its source, a pre-existing gap this file no
+longer inherits), coverm_map below branches on `LR` (config["longreads"],
+set in 02_phables_preflight.smk and already used the same way -- a plain
+module-level global, not a wildcard -- by phables.smk's own `longreads=LR`
+param) to pick minimap2's -ax sr preset for short reads (unchanged) or
+-ax map-ont for long reads. --longreads is a bare boolean CLI flag with no
+ONT/PacBio distinction anywhere in phables (confirmed: no such option in
+__main__.py), so a single long-read preset is what there's room to pick.
+
+Fix History (dsmk-2026-08-10)
+-----------------------------
+Confirmed against ../metagenomic_phage_discovery/pilot10_longreads that every
+sample actually run through this fork's --longreads path so far is Oxford
+Nanopore (manifest.tsv: instrument_platform OXFORD_NANOPORE for all 10 runs),
+assembled with myloasm's default (non-hifi) mode, which itself targets
+Nanopore R10.4-class reads (see that project's run_pilot_assembly.sh) -- i.e.
+map-ont, not map-pb/map-hifi, is the correct default for this path today, not
+just a guess. run_pilot_phables.sh had flagged this exact gap as unverified
+("whether koverage correctly selects minimap2 for single-end long reads")
+before this fix. --secondary=no is kept for both presets (it suppresses
+secondary alignments regardless of preset and coverage counting wants that
+either way, not something specific to the sr preset).
 """
 
 rule koverage_tsv:
@@ -50,7 +68,8 @@ rule koverage_tsv:
 rule coverm_map:
     """Map each sample's reads to the unitig edges with minimap2 -> sorted,
     unmapped-filtered, indexed BAM. Matches Koverage's own coverm_map_pe rule
-    exactly (see module docstring above)."""
+    for short reads; branches to a long-read minimap2 preset when LR is set
+    (see module docstring's Fix History)."""
     input:
         ref = EDGES_FILE,
         r1 = lambda wildcards: SAMPLE_READS[wildcards.sample]["R1"],
@@ -58,6 +77,11 @@ rule coverm_map:
         # Koverage's own rule passes "" for single-end samples (R2 None) --
         # minimap2 then maps r1 alone. Preserved as-is.
         r2 = lambda wildcards: SAMPLE_READS[wildcards.sample]["R2"] or "",
+        # LR is a plain module-level global (config["longreads"], set once
+        # for the whole run in 02_phables_preflight.smk) -- not a per-sample
+        # wildcard -- so it's fine to resolve this at parse time rather than
+        # via a lambda, same as phables.smk's own longreads=LR param.
+        preset = "map-ont" if LR else "sr",
     output:
         bam = os.path.join(OUTDIR, "preprocess", "temp", "{sample}.bam"),
         bai = os.path.join(OUTDIR, "preprocess", "temp", "{sample}.bam.bai"),
@@ -71,7 +95,7 @@ rule coverm_map:
         os.path.join(LOGSDIR, "coverm_map.{sample}.log")
     shell:
         """
-        {{ minimap2 -t {threads} -ax sr --secondary=no {input.ref} {input.r1} {params.r2} \
+        {{ minimap2 -t {threads} -ax {params.preset} --secondary=no {input.ref} {input.r1} {params.r2} \
             | samtools sort -T {wildcards.sample} -@ {threads} - \
             | samtools view -F 4 > {output.bam} ; \
         samtools index {output.bam} ; }} 2> {log}
