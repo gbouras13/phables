@@ -36,12 +36,30 @@ from pathlib import Path
 # the real import already failed (OSError from the failed .so load, not a plain
 # ImportError -- matches what's actually raised here), so this is a no-op
 # everywhere torchaudio works normally.
+#
+# The stub needs a real (if empty) __spec__, not just a bare ModuleType: before
+# transformers ever reaches the `import torchaudio` line above, it first runs a
+# *lightweight* availability check (is_torchaudio_available() ->
+# importlib.util.find_spec("torchaudio")) that explicitly raises
+# `ValueError: torchaudio.__spec__ is None` if sys.modules already has an entry
+# for the name with no spec -- confirmed by hitting this exact error with a first
+# version of this workaround that used a bare ModuleType. __version__ is set too,
+# defensively: if the real package's installed-distribution metadata ever isn't
+# resolvable (it should be here, since torchaudio genuinely is pip-installed, just
+# broken at runtime), transformers falls back to reading torchaudio.__version__
+# directly, which our stub would otherwise lack.
 try:
     import torchaudio  # noqa: F401
 except OSError:
+    import importlib.machinery
     import types
 
-    sys.modules["torchaudio"] = types.ModuleType("torchaudio")
+    _torchaudio_stub = types.ModuleType("torchaudio")
+    _torchaudio_stub.__spec__ = importlib.machinery.ModuleSpec(
+        "torchaudio", loader=None
+    )
+    _torchaudio_stub.__version__ = "0.0.0"
+    sys.modules["torchaudio"] = _torchaudio_stub
 
 from pholdlib.prostt5.device import parse_gpus
 from pholdlib.prostt5.model import get_T5_model, load_predictor
