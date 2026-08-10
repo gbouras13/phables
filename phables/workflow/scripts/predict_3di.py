@@ -21,6 +21,28 @@ import argparse
 import sys
 from pathlib import Path
 
+# Work around a broken torchaudio install inside some containers (confirmed on
+# Setonix's ROCm container: `OSError: libomp.so: cannot open shared object file`).
+# Root cause: merely importing pholdlib.prostt5 executes pholdlib/prostt5/model.py,
+# which does `from transformers import T5EncoderModel, ...` -- and recent
+# transformers versions route ALL model imports through a shared loss registry
+# (transformers/loss/loss_utils.py) that unconditionally imports
+# transformers/loss/loss_rnnt.py to support ParakeetForRNNTLoss, an audio ASR loss
+# completely unrelated to T5/protein embeddings. That file does a plain
+# `import torchaudio`, and torchaudio's compiled extension needs libomp.so, which
+# this container's image doesn't have linkable. We never touch anything audio-
+# related, so if the real torchaudio can't load, install a harmless stub in
+# sys.modules so transformers' import chain completes anyway. Only engages when
+# the real import already failed (OSError from the failed .so load, not a plain
+# ImportError -- matches what's actually raised here), so this is a no-op
+# everywhere torchaudio works normally.
+try:
+    import torchaudio  # noqa: F401
+except OSError:
+    import types
+
+    sys.modules["torchaudio"] = types.ModuleType("torchaudio")
+
 from pholdlib.prostt5.device import parse_gpus
 from pholdlib.prostt5.model import get_T5_model, load_predictor
 from pholdlib.prostt5.inference import run_prostt5_inference
