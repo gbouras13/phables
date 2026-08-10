@@ -97,7 +97,7 @@ rule coverm_map:
         """
         {{ minimap2 -t {threads} -ax {params.preset} --secondary=no {input.ref} {input.r1} {params.r2} \
             | samtools sort -T {wildcards.sample} -@ {threads} - \
-            | samtools view -F 4 > {output.bam} ; \
+            | samtools view -b -F 4 > {output.bam} ; \
         samtools index {output.bam} ; }} 2> {log}
         """
 
