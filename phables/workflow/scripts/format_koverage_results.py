@@ -18,6 +18,55 @@ __maintainer__ = "Vijini Mallawaarachchi"
 __email__ = "viji.mallawaarachchi@gmail.com"
 
 
+# koverage_tsv column layout
+# ---------------------------------------------------------------------------
+# postprocess.smk's koverage_genomes rule runs `koverage run --reads ... --ref ...`
+# with no `coverm` subcommand, which invokes Koverage's *native* "map" mode
+# (Snakefile default target `map`, workflow/rules/coverage.smk), NOT the
+# `coverm` wrapper mode (workflow/rules/coverm.smk). These two modes write
+# very differently-shaped sample_coverage.tsv files, so the indices below
+# only apply to the native "map" mode actually used here.
+#
+# Native "map" mode header (see Koverage's coverage.smk `all_sample_coverage`
+# rule and scripts/sampleCoverage.py, confirmed against upstream source on
+# 2026-08-10, https://github.com/beardymcjohnface/Koverage):
+#
+#   Sample  Contig  Count  RPM  RPKM  RPK  TPM  Mean  Median  Hitrate  Variance
+#     0       1       2     3    4     5    6    7      8        9        10
+#
+# For reference, the `coverm` subcommand mode's header is different (and is
+# NOT what postprocess.smk produces):
+#   Sample  Contig  Count  RPKM  TPM  Mean  Covered_fraction  Variance
+#     0       1       2     3    4     5           6             7
+#
+# Do not "fix" IDX_RPKM/IDX_MEAN below to the coverm-mode indices (3/5) --
+# that would break parsing of the native "map" mode file this script
+# actually receives.
+IDX_SAMPLE = 0
+IDX_CONTIG = 1
+IDX_COUNT = 2
+IDX_RPKM = 4
+IDX_MEAN = 7
+
+
+def parse_koverage_row(strings):
+    """Parse one data row (i.e. not the header) of Koverage's native
+    "map" mode sample_coverage.tsv.
+
+    Args:
+        strings (list[str]): tab-split fields of one data line.
+
+    Returns:
+        tuple: (sample, contig, count, rpkm, mean_coverage)
+    """
+    sample = strings[IDX_SAMPLE]
+    contig = strings[IDX_CONTIG]
+    count = int(float(strings[IDX_COUNT]))
+    rpkm_val = float(strings[IDX_RPKM])
+    mean_val = float(strings[IDX_MEAN])
+    return sample, contig, count, rpkm_val, mean_val
+
+
 def main():
     # Get arguments
     # -----------------------
@@ -87,9 +136,10 @@ def main():
     with open(koverage_tsv, "r") as mf:
         for line in mf.readlines()[1:]:
             strings = line.strip().split("\t")
-            read_counts[strings[1]][strings[0]] = int(float(strings[2]))
-            rpkm[strings[1]][strings[0]] = float(strings[4])
-            mean_cov[strings[1]][strings[0]] = float(strings[7])
+            sample, contig, count, rpkm_val, mean_val = parse_koverage_row(strings)
+            read_counts[contig][sample] = count
+            rpkm[contig][sample] = rpkm_val
+            mean_cov[contig][sample] = mean_val
 
     # Add records to dataframe
     counter = 0
