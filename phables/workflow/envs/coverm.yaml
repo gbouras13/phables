@@ -1,0 +1,12 @@
+name: coverm
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  # Same three tools Koverage's own "coverm" mode wraps under the hood
+  # (github.com/beardymcjohnface/Koverage, workflow/rules/coverm.smk) -- calling
+  # them directly (PLAN.md §4.8) rather than through koverage removes a nested
+  # Snakemake dependency and gives direct control of the CoverM invocation.
+  - minimap2>=2.24
+  - samtools>=1.15
+  - coverm>=0.6
