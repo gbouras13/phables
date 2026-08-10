@@ -21,21 +21,28 @@ import argparse
 import sys
 from pathlib import Path
 
-# Work around a broken torchaudio install inside some containers (confirmed on
-# Setonix's ROCm container: `OSError: libomp.so: cannot open shared object file`).
+# Work around transformers' loss registry unconditionally importing torchaudio.
 # Root cause: merely importing pholdlib.prostt5 executes pholdlib/prostt5/model.py,
 # which does `from transformers import T5EncoderModel, ...` -- and recent
-# transformers versions route ALL model imports through a shared loss registry
-# (transformers/loss/loss_utils.py) that unconditionally imports
-# transformers/loss/loss_rnnt.py to support ParakeetForRNNTLoss, an audio ASR loss
-# completely unrelated to T5/protein embeddings. That file does a plain
-# `import torchaudio`, and torchaudio's compiled extension needs libomp.so, which
-# this container's image doesn't have linkable. We never touch anything audio-
-# related, so if the real torchaudio can't load, install a harmless stub in
-# sys.modules so transformers' import chain completes anyway. Only engages when
-# the real import already failed (OSError from the failed .so load, not a plain
-# ImportError -- matches what's actually raised here), so this is a no-op
-# everywhere torchaudio works normally.
+# transformers versions route model imports through a shared loss registry
+# (transformers/loss/loss_utils.py) that, once it decides torchaudio is
+# "available", imports transformers/loss/loss_rnnt.py to support
+# ParakeetForRNNTLoss -- an audio ASR loss completely unrelated to T5/protein
+# embeddings -- which does a plain `import torchaudio`. We never touch anything
+# audio-related, so if that import can't actually succeed, install a harmless
+# stub in sys.modules so transformers' import chain completes anyway. Two
+# distinct real failure modes hit in practice, both caught here:
+#   - OSError: torchaudio is installed but its compiled extension can't load
+#     (confirmed on Setonix's ROCm container: `libomp.so: cannot open shared
+#     object file` -- the image doesn't have that runtime linkable).
+#   - ModuleNotFoundError (a subclass of ImportError): torchaudio isn't
+#     installed at all, e.g. a plain conda env that only installs torch +
+#     pholdlib, not the full audio/vision extras a generic "pytorch" container
+#     image tends to bundle. Confirmed this needed covering too, not just
+#     OSError -- our own diagnostic `import torchaudio` below would otherwise
+#     crash unnecessarily in exactly this env, independent of whether
+#     transformers' own internal logic would have needed torchaudio at all.
+# No-op everywhere torchaudio genuinely works normally.
 #
 # The stub needs a real (if empty) __spec__, not just a bare ModuleType: before
 # transformers ever reaches the `import torchaudio` line above, it first runs a
@@ -45,12 +52,11 @@ from pathlib import Path
 # for the name with no spec -- confirmed by hitting this exact error with a first
 # version of this workaround that used a bare ModuleType. __version__ is set too,
 # defensively: if the real package's installed-distribution metadata ever isn't
-# resolvable (it should be here, since torchaudio genuinely is pip-installed, just
-# broken at runtime), transformers falls back to reading torchaudio.__version__
-# directly, which our stub would otherwise lack.
+# resolvable, transformers falls back to reading torchaudio.__version__ directly,
+# which our stub would otherwise lack.
 try:
     import torchaudio  # noqa: F401
-except OSError:
+except (OSError, ImportError):
     import importlib.machinery
     import types
 

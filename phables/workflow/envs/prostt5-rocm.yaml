@@ -6,19 +6,23 @@ dependencies:
   - pip
   - pip:
     # Unlike CUDA, ROCm is never the default pip torch build -- this index
-    # override is required, not just for reproducibility. rocm6.3 was the
-    # newest version confirmed to have a torch wheel when this file was
-    # written; check https://download.pytorch.org/whl/torch/ for the current
-    # list and match it to the target machine's ROCm driver version (e.g.
-    # Setonix's MI250X nodes -- confirm the installed ROCm version there
-    # before assuming this one is right; it was not verified against any
-    # actual ROCm hardware while writing this).
+    # override is required, not just for reproducibility.
     - --extra-index-url https://download.pytorch.org/whl/rocm6.3
-    # >=2.6 floor: transformers' checkpoint loader refuses torch.load() on any
-    # older torch outright (CVE-2025-32434 hardening in check_torch_load_is_safe),
-    # which broke loading Rostlab/ProstT5_fp16 (no safetensors file). pholdlib's
-    # own torch requirement is unconstrained, so this needs to be explicit here
-    # rather than left to pholdlib's resolution. Confirmed rocm6.3 has torch
-    # wheels >=2.6 (2.7.0 through 2.9.1 at time of writing).
-    - torch>=2.6
+    # torch==2.7.1+rocm6.3 pinned exactly, not just floored -- matches Setonix's
+    # own verified-working Pawsey container (quay.io/pawsey/pytorch:2.7.1-rocm6.3.3),
+    # confirmed real via https://download.pytorch.org/whl/rocm6.3/torch/ (the
+    # exact wheel exists for cp39-cp313). Switched to this conda-env path instead
+    # of the --prostt5-container route after repeatedly hitting container-specific
+    # problems on Setonix that had nothing to do with phables/pholdlib itself:
+    # a broken torchaudio needing libomp.so, --home overriding the container's
+    # apparent CWD so relative output paths silently resolved to the wrong place,
+    # and a missing MIOpen AI-heuristic kernel-selection file for gfx90a. All real,
+    # all diagnosed, none of them things a plain conda env run directly on the host
+    # (no container namespace, no bind-mount surface) is exposed to at all.
+    # >=2.6 would already avoid transformers' checkpoint loader refusing
+    # torch.load() on older torch outright (CVE-2025-32434 hardening in
+    # check_torch_load_is_safe, which broke loading Rostlab/ProstT5_fp16 -- no
+    # safetensors file); pinning to exactly 2.7.1 goes further, matching a
+    # version already confirmed to work on this exact hardware (MI250X, gfx90a).
+    - torch==2.7.1
     - pholdlib>=0.1.2
