@@ -15,8 +15,16 @@ import os
 import subprocess
 from collections import defaultdict
 
-import pandas as pd
-from Bio import SeqIO
+# pandas/biopython imports deliberately deferred to main(), not module level --
+# both are provided at real Snakemake-runtime by envs/phables.yaml (this
+# script's rule: conda: phables.yaml), but importing this module standalone
+# (as tests/test_format_koverage_results.py does, to unit-test
+# parse_koverage_row/IDX_* in isolation) shouldn't require the whole package
+# install to include a data-science stack just to reach two constants and a
+# tuple-unpacking function that never touch either library. Confirmed CI's own
+# `build/environment.yml` does not install either -- module-level imports here
+# would fail collection in a clean CI env even though nothing test-relevant
+# uses them.
 
 __author__ = "Vijini Mallawaarachchi"
 __copyright__ = "Copyright 2023, Phables Project"
@@ -79,6 +87,9 @@ def parse_koverage_row(strings):
 
 
 def main():
+    import pandas as pd
+    from Bio import SeqIO
+
     # Get arguments
     # -----------------------
 
