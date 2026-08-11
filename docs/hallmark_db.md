@@ -94,8 +94,13 @@ full multi-GB structure DB and is the slow part.
 phold DB's own files** (not copies) — expected: `--id-mode 0` subsets by the
 original DB's own row keys rather than renumbering, so those original files
 remain valid for resolving them, and foldseek doesn't bother duplicating
-potentially-huge files it doesn't need to. This only matters when
-**packaging** the result for redistribution — see below.
+potentially-huge files it doesn't need to. **Confirmed by real testing that
+phables doesn't need either file at query time** — `foldseek convertalis`
+resolves the `target`/`query` columns via the `_h` (header) database, which
+`createsubdb` builds properly for the subset (not symlinked); `.lookup`/
+`.source` are only consulted by `createsubdb` itself, as a *build-time* input,
+not by anything downstream that reads the resulting subDB. Safe (and
+recommended) to leave both out of a packaged tarball — see below.
 
 ## Reference build — real numbers, so you can sanity-check your own
 
@@ -124,23 +129,23 @@ be stable across phold DB versions.
 
 If you rebuild and want `phables install` to fetch your new version (updating
 `hallmark_db_url` in `phables/config/databases.yaml`), package it from
-*inside* the output directory, with `-h`/`--dereference`:
+*inside* the output directory, excluding `.lookup`/`.source` (build-time-only,
+confirmed unneeded at query time above) and — check first — anything left
+over from a previous packaging attempt in the same directory:
 
 ```bash
 cd hallmark_db/
-tar -czhf hallmark_db.tar.gz .
-# sanity check: this must print nothing -- any symlink left in the tarball is
-# a dangling reference to a path that only exists on the machine that built it
-tar -tvf hallmark_db.tar.gz | grep -- '->'
+ls   # check there's nothing stray in here before archiving everything with `.`
+tar --exclude='*.lookup' --exclude='*.source' -czf hallmark_db.tar.gz .
 ```
 
-`-h` is required, not optional — without it, the `.lookup`/`.source`
-symlinks discussed above archive as symlinks pointing at their *original*
-absolute path on the build machine, which breaks for literally everyone else
-who extracts the tarball. Expect the dereferenced tarball to be noticeably
-bigger than the subDB's own ~138MB, since it also embeds the *original* phold
-DB's full `.lookup`/`.source` files (whatever size those are for the phold DB
-release you built against) rather than just the subset's.
+The real, currently-hosted build (`hallmark_db_url` below) skipped the
+`--exclude` and instead just never had `.lookup`/`.source` present when it was
+packaged — either is fine, the goal is simply that neither ends up in the
+tarball. Worth knowing either way, since a `tar czf ... .` run from inside a
+directory that already has a `.tar.gz` sitting in it from a previous attempt
+will happily include that stale archive inside the new one — harmless at
+runtime (nothing reads a `.tar.gz` member), but worth a clean `ls` first.
 
 `install.smk`'s `hallmark_db_download` rule extracts this tarball's members
 at its own root into a fresh `hallmark_db/` directory it creates itself
@@ -151,9 +156,10 @@ double-nested on extraction.
 
 ## Why phold's full structure DB isn't bundled
 
-`phables install` fetches the *pre-built subDB* (~138MB+) automatically, the
-same way it fetches `marker.hmm`/the PHROGs MMseqs profile DB — but it
-doesn't fetch or depend on phold's own full structure database (the multi-GB,
+`phables install` fetches the *pre-built subDB* (~105MB, hosted on
+[Zenodo](https://zenodo.org/records/21884331)) automatically, the same way
+it fetches `marker.hmm`/the PHROGs MMseqs profile DB — but it doesn't fetch
+or depend on phold's own full structure database (the multi-GB,
 separately-versioned source this subDB was built from) at install time.
 Rebuilding only matters if you want a newer phold snapshot or different
 build parameters than the shipped reference build above; get phold's

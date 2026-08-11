@@ -24,6 +24,6 @@ phrog_annot_file: "phrog_annot_v4.tsv"
 # name for the *runtime* --hallmark-db path, and configfile: entries share one
 # flat config dict, so reusing it here would silently clobber that value with
 # this download URL instead. Caught before it shipped, not after.
-hallmark_db_url: "CHANGE-ME: hosted URL for hallmark_db.tar.gz (e.g. a Zenodo record) once uploaded"
+hallmark_db_url: "https://zenodo.org/records/21884331/files/hallmark_db.tar.gz?download=1"
 hallmark_db_file: "hallmark_db.tar.gz"
 hallmark_db_folder: "hallmark_db/"
