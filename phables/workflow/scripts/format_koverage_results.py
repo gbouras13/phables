@@ -1,6 +1,14 @@
 #!/usr/bin/python3
 
-"""format_koverage_results.py: Format koverage results."""
+"""format_koverage_results.py: Format the per-genome coverage table into
+phables' report TSVs.
+
+NOTE the filename is now a misnomer: koverage was removed from the workflow
+entirely (PLAN.md 4.8) and this reads a `coverm contig`-derived table. Kept
+under the original name to preserve git history/blame on Vijini's original
+script; renaming it (plus its test, log filename, and postprocess.smk
+reference) is a safe, purely-cosmetic follow-up.
+"""
 
 import logging
 import os
@@ -18,40 +26,43 @@ __maintainer__ = "Vijini Mallawaarachchi"
 __email__ = "viji.mallawaarachchi@gmail.com"
 
 
-# koverage_tsv column layout
+# sample_coverage.tsv column layout
 # ---------------------------------------------------------------------------
-# postprocess.smk's koverage_genomes rule runs `koverage run --reads ... --ref ...`
-# with no `coverm` subcommand, which invokes Koverage's *native* "map" mode
-# (Snakefile default target `map`, workflow/rules/coverage.smk), NOT the
-# `coverm` wrapper mode (workflow/rules/coverm.smk). These two modes write
-# very differently-shaped sample_coverage.tsv files, so the indices below
-# only apply to the native "map" mode actually used here.
+# postprocess.smk no longer runs koverage at all -- its per-genome coverage is
+# now produced by a direct `coverm contig` invocation (rules coverm_map_genomes
+# / coverm_bam2counts_genomes / coverm_combine_genomes), completing PLAN.md
+# §4.8. The indices below therefore describe the CoverM-mode header:
 #
-# Native "map" mode header (see Koverage's coverage.smk `all_sample_coverage`
-# rule and scripts/sampleCoverage.py, confirmed against upstream source on
-# 2026-08-10, https://github.com/beardymcjohnface/Koverage):
+#   Sample  Contig  Count  RPKM  TPM  Mean  Covered_fraction  Variance
+#     0       1       2     3    4     5           6             7
+#
+# ("Covered_fraction" is coverm's `covered_fraction` method as it appears after
+# coverm_combine_genomes strips the per-column "<bam filename> " prefix.)
+#
+# HISTORICAL, for anyone reading old output or an older checkout: this script
+# previously parsed Koverage's *native* "map" mode file, whose header is
+# different and LONGER (confirmed against upstream source on 2026-08-10,
+# https://github.com/beardymcjohnface/Koverage -- coverage.smk's
+# all_sample_coverage rule + scripts/sampleCoverage.py):
 #
 #   Sample  Contig  Count  RPM  RPKM  RPK  TPM  Mean  Median  Hitrate  Variance
 #     0       1       2     3    4     5    6    7      8        9        10
 #
-# For reference, the `coverm` subcommand mode's header is different (and is
-# NOT what postprocess.smk produces):
-#   Sample  Contig  Count  RPKM  TPM  Mean  Covered_fraction  Variance
-#     0       1       2     3    4     5           6             7
-#
-# Do not "fix" IDX_RPKM/IDX_MEAN below to the coverm-mode indices (3/5) --
-# that would break parsing of the native "map" mode file this script
-# actually receives.
+# -- i.e. RPKM was index 4 and Mean was index 7, not 3 and 5. Mixing the two
+# layouts up silently mislabels RPKM/TPM or Mean/Variance in the report tables
+# rather than erroring, so if you ever point this script at a
+# sample_coverage.tsv produced by anything other than coverm_combine_genomes,
+# check its header first.
 IDX_SAMPLE = 0
 IDX_CONTIG = 1
 IDX_COUNT = 2
-IDX_RPKM = 4
-IDX_MEAN = 7
+IDX_RPKM = 3
+IDX_MEAN = 5
 
 
 def parse_koverage_row(strings):
-    """Parse one data row (i.e. not the header) of Koverage's native
-    "map" mode sample_coverage.tsv.
+    """Parse one data row (i.e. not the header) of the CoverM-mode
+    sample_coverage.tsv written by postprocess.smk's coverm_combine_genomes.
 
     Args:
         strings (list[str]): tab-split fields of one data line.
@@ -116,7 +127,7 @@ def main():
 
     # Log inputs
     logger.info(f"Samples file: {samples_file}")
-    logger.info(f"Koverage results: {koverage_tsv}")
+    logger.info(f"Per-genome coverage table: {koverage_tsv}")
     logger.info(f"Output path: {output_path}")
 
     # Get sample names
@@ -197,7 +208,7 @@ def main():
     # Exit program
     # --------------
 
-    logger.info("Thank you for using format_koverage_results!")
+    logger.info("Thank you for using phables!")
 
 
 if __name__ == "__main__":

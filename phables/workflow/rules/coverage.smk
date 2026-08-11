@@ -18,9 +18,12 @@ default config.yaml), not reimplemented from guesswork:
     (coverm_combine there).
 Byte-for-byte the same `sample_coverm_coverage.tsv` shape as before, so
 run_combine_cov below and coverage_utils.py's BAM globbing (both downstream
-consumers) need no changes. Only the preprocess step above is affected --
-postprocess.smk's own `koverage_genomes` rule uses Koverage's separate native
-(non-CoverM) coverage engine, not this wrapper, and is out of scope here.
+consumers) need no changes.
+
+This file converted the preprocess (MFD-critical) step. postprocess.smk's
+per-genome report coverage -- which used Koverage's separate *native*
+(non-CoverM) engine -- was converted separately, in a follow-up; koverage is now
+gone from the workflow entirely and koverage.yaml has been deleted.
 
 Note: the phables-side docstring on run_combine_cov used to say "Covered_bases"
 for column 7 -- that's actually Covered_fraction (Koverage's real 6th --methods
@@ -52,10 +55,13 @@ secondary alignments regardless of preset and coverage counting wants that
 either way, not something specific to the sr preset).
 """
 
-rule koverage_tsv:
-    """Generate TSV of samples and reads -- still needed by postprocess.smk's
-    own (still Koverage-based) koverage_genomes rule, which reads this same
-    file; not needed by coverm_map below, which uses SAMPLE_READS directly."""
+rule samples_tsv:
+    """Generate TSV of samples and reads. Despite its former name
+    (koverage_tsv) this rule never invoked koverage -- it's a plain metasnek
+    fastq_finder call. Still produced because format_genome_coverage
+    (postprocess.smk) reads it to get the sample-name column order for its
+    report tables; not needed by coverm_map below, which uses SAMPLE_READS
+    directly."""
     output:
         os.path.join(OUTDIR, "preprocess", "phables.samples.tsv")
     params:
