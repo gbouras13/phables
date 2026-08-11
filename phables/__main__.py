@@ -250,14 +250,19 @@ def run_options(func):
             "--hallmark-db",
             default=None,
             required=False,
-            help="foldseek hallmark structure subDB prefix (required for --phagedetection prostt5-foldseek)",
+            help="foldseek hallmark structure subDB prefix, only used with --phagedetection "
+            "prostt5-foldseek. Auto-resolves to the copy `phables install` fetches under "
+            "--databases (docs/hallmark_db.md) when not set -- override only if you built "
+            "your own with build_hallmark_db.py",
             type=click.Path(),
         ),
         click.option(
             "--hallmark-categories",
             default=None,
             required=False,
-            help="hallmark PHROG categories TSV from build_hallmark_db.py (required for --phagedetection prostt5-foldseek)",
+            help="hallmark PHROG categories TSV, only used with --phagedetection "
+            "prostt5-foldseek. Auto-resolves alongside --hallmark-db when not set -- "
+            "see build_hallmark_db.py/docs/hallmark_db.md",
             type=click.Path(),
         ),
         click.option(

@@ -1,11 +1,14 @@
-# Building the hallmark structure database
+# The hallmark structure database
 
-`--phagedetection prostt5-foldseek` needs two inputs that aren't downloaded by
-`phables install`: a Foldseek structure subDB of phage hallmark proteins
-(`--hallmark-db`) and its matching PHROG-category table
-(`--hallmark-categories`). This page explains what they are, how
-`build_hallmark_db.py` builds them, and why they're a separate, one-time admin
-step rather than something `phables install` fetches automatically.
+`--phagedetection prostt5-foldseek` needs two inputs: a Foldseek structure
+subDB of phage hallmark proteins (`--hallmark-db`) and its matching
+PHROG-category table (`--hallmark-categories`). `phables install` fetches a
+pre-built copy of both automatically, the same way it already fetches
+`marker.hmm` and the PHROGs MMseqs profile DB — most users never need
+anything on this page beyond knowing it happens. It exists for anyone who
+wants to understand what's actually in that download, verify it, or rebuild
+it themselves (a newer phold structure DB release, a different category
+selection, etc.).
 
 ## What "hallmark" means here
 
@@ -57,7 +60,11 @@ family. A stride (`ordered[int(i * len(ordered)/max_per_phrog)]` for
 `i in range(max_per_phrog)`) picks evenly across the whole sorted range
 instead.
 
-## Running it
+## Rebuilding it
+
+Not a normal-use step — `phables install` already fetches a pre-built copy
+(see below). Rebuild only if you want a newer phold structure DB snapshot, a
+different `--max-per-phrog` cap, or a different category selection.
 
 ```bash
 mamba env create -f phables/workflow/envs/foldseek.yaml -n foldseek
@@ -74,7 +81,7 @@ This writes, under `hallmark_db/`:
 
 | File | What it is |
 |---|---|
-| `hallmark_db*` (`hallmark_db`, `hallmark_db_ss`, `hallmark_db_h` + `.index`/`.dbtype`) | The Foldseek subDB — pass its prefix (`hallmark_db/hallmark_db`) to `--hallmark-db` |
+| `hallmark_db*` (`hallmark_db`, `hallmark_db_ss`, `hallmark_db_h`, `hallmark_db_ca` + `.index`/`.dbtype`) | The Foldseek subDB — pass its prefix (`hallmark_db/hallmark_db`) to `--hallmark-db`. `_ca` (C-alpha coordinates) needs its own `createsubdb` call same as `_ss`/`_h` — not a side effect of the main `""` call, confirmed against [steineggerlab/foldseek#97](https://github.com/steineggerlab/foldseek/issues/97) |
 | `hallmark_categories.tsv` | `phrog_id\tcategory` — pass to `--hallmark-categories` |
 | `hallmark_ids.tsv` | The `.lookup` row indices `createsubdb` was given (intermediate; not needed at run time) |
 | `integration_excision_db*`, `integration_excision_categories.tsv`, `integration_excision_ids.tsv` | The separate integration/excision channel discussed above — not currently wired into `--hallmark-db` (phables only consumes the hallmark channel today), kept in case a future check wants it |
@@ -82,6 +89,13 @@ This writes, under `hallmark_db/`:
 Pass `--skip-createsubdb` first if you just want to sanity-check the category
 counts before committing to the `createsubdb` step, which reads through the
 full multi-GB structure DB and is the slow part.
+
+**`createsubdb` leaves `.lookup`/`.source` as symlinks back to the *original*
+phold DB's own files** (not copies) — expected: `--id-mode 0` subsets by the
+original DB's own row keys rather than renumbering, so those original files
+remain valid for resolving them, and foldseek doesn't bother duplicating
+potentially-huge files it doesn't need to. This only matters when
+**packaging** the result for redistribution — see below.
 
 ## Reference build — real numbers, so you can sanity-check your own
 
@@ -92,8 +106,9 @@ subsample) as part of validating this feature end-to-end:
 - **436** integration-and-excision PHROGs
 - **49,869** hallmark structures after capping (`--max-per-phrog 30`)
 - **2,610** integration-and-excision structures after capping
-- **137 MB** total subDB size — comfortably inside "low hundreds of
-  thousands of structures, page-cacheable" territory
+- **~138 MB** total subDB size (real, non-symlinked file content) —
+  comfortably inside "low hundreds of thousands of structures,
+  page-cacheable" territory
 - Verified **queryable**, not just built: a self-search of the hallmark subDB
   returned biologically sensible cross-hits (`phrog_2` ↔ `phrog_5653`, both
   independently annotated "terminase large subunit / head and packaging" in
@@ -105,14 +120,42 @@ those two counts depend only on `phold_annots.tsv`'s categories, not on which
 structures happen to be in your particular phold DB snapshot, so they should
 be stable across phold DB versions.
 
-## Why this isn't part of `phables install`
+## Packaging a rebuild for redistribution
 
-`phables install` downloads small, purpose-built assets (`marker.hmm`, the
-PHROGs MMseqs profile DB) directly from their own stable URLs. The hallmark
-subDB's source — phold's full structure database — is a multi-GB, separately
-versioned/distributed asset with its own release cadence, not something this
-project should silently re-host or auto-fetch a pinned copy of. Building the
-hallmark subDB is a deliberate, one-time admin step: get phold's structure DB
-yourself (see phold's own docs for the current download instructions), then
-run `build_hallmark_db.py` once and reuse the output across every
-`--phagedetection prostt5-foldseek` run.
+If you rebuild and want `phables install` to fetch your new version (updating
+`hallmark_db_url` in `phables/config/databases.yaml`), package it from
+*inside* the output directory, with `-h`/`--dereference`:
+
+```bash
+cd hallmark_db/
+tar -czhf hallmark_db.tar.gz .
+# sanity check: this must print nothing -- any symlink left in the tarball is
+# a dangling reference to a path that only exists on the machine that built it
+tar -tvf hallmark_db.tar.gz | grep -- '->'
+```
+
+`-h` is required, not optional — without it, the `.lookup`/`.source`
+symlinks discussed above archive as symlinks pointing at their *original*
+absolute path on the build machine, which breaks for literally everyone else
+who extracts the tarball. Expect the dereferenced tarball to be noticeably
+bigger than the subDB's own ~138MB, since it also embeds the *original* phold
+DB's full `.lookup`/`.source` files (whatever size those are for the phold DB
+release you built against) rather than just the subset's.
+
+`install.smk`'s `hallmark_db_download` rule extracts this tarball's members
+at its own root into a fresh `hallmark_db/` directory it creates itself
+(`mkdir -p {output}; tar -xf {file} -C {output}`) — matching exactly the `cd
+hallmark_db/ && tar ... .` layout above. A tarball built any other way (e.g.
+with a top-level `hallmark_db/` folder already inside it) will end up
+double-nested on extraction.
+
+## Why phold's full structure DB isn't bundled
+
+`phables install` fetches the *pre-built subDB* (~138MB+) automatically, the
+same way it fetches `marker.hmm`/the PHROGs MMseqs profile DB — but it
+doesn't fetch or depend on phold's own full structure database (the multi-GB,
+separately-versioned source this subDB was built from) at install time.
+Rebuilding only matters if you want a newer phold snapshot or different
+build parameters than the shipped reference build above; get phold's
+structure DB yourself for that (see phold's own docs for current download
+instructions).
