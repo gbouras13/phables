@@ -14,7 +14,7 @@ MAX_VAL = sys.maxsize
 LEN_THRESHOLD = 0.95
 
 # Create logger
-logger = logging.getLogger("phables 1.5.0")
+logger = logging.getLogger("phables 2.0.0")
 
 
 def resolve_long(
