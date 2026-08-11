@@ -193,9 +193,17 @@ def main():
     # --id-mode 0: subset by database KEY (the .lookup file's row index, column 0),
     # not by sequence content -- confirmed via `foldseek createsubdb -h`, and matches
     # the row indices load_lookup_by_phrog collected above.
+    #
+    # _ca (C-alpha coordinates) needs its OWN separate createsubdb call, same as
+    # _ss/_h -- it is not a side effect of subsetting the main "" db. Confirmed
+    # against steineggerlab/foldseek#97, which builds an AFDB subset the same
+    # way: separate createsubdb calls against afdb, afdb_ss, and afdb_ca. Missed
+    # in an earlier version of this script; foldseek's structural search/
+    # alignment needs the coordinates, not just AA+3Di sequence, so a subDB
+    # built without _ca would be incomplete.
     for name, ids_path in (("hallmark", hallmark_ids_path), ("integration_excision", separate_ids_path)):
         out_prefix = out_dir / f"{name}_db"
-        for suffix in ("", "_ss", "_h"):
+        for suffix in ("", "_ss", "_h", "_ca"):
             run([
                 args.foldseek, "createsubdb", "--id-mode", "0",
                 str(ids_path),
