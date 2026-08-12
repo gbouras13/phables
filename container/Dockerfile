@@ -81,6 +81,15 @@ ENV PATH="/opt/conda/bin:${PATH}"
 RUN pip install --ignore-installed PyYAML && \
     python -c "import torch; print('torch (pre-existing, untouched):', torch.__version__)"
 
+#
+# NOT included: cogent3/piqtree (phylotree.yaml's own deps, for the optional
+# --phylotree/build_tree rule -- not part of this workflow's usage).
+# Deliberately left out rather than fought into pip (every cogent3 release on
+# PyPI is an unreleased alpha, which breaks a plain version-range pip
+# install). Note: --phylotree is therefore NOT supported under --container --
+# build_tree still declares container: CONTAINER_IMAGE (unchanged), so it
+# will fail if actually invoked against this image.
+#
 RUN pip install \
         "pholdlib>=0.1.2" \
         "pyrodigal-gv>=0.3.1" \
@@ -94,9 +103,7 @@ RUN pip install \
         tqdm \
         click \
         "metasnek>=0.0.3" \
-        "flowpaths>=0.2.20" \
-        "cogent3<2026.7" \
-        piqtree
+        "flowpaths>=0.2.20"
 
 RUN python -c "import torch; print('torch (post pip installs, should be unchanged):', torch.__version__)"
 
