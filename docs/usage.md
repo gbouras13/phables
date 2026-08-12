@@ -18,6 +18,14 @@ Options:
   --use-conda / --no-use-conda    Use conda for Snakemake rules  [default:
                                   use-conda]
   --conda-prefix PATH             Custom conda env directory
+  --container PATH                container image with every per-rule tool
+                                  already installed (container/Dockerfile),
+                                  replacing --use-conda's per-rule env
+                                  creation for the WHOLE workflow -- not just
+                                  predict_3di (--prostt5-container). Needs
+                                  --use-singularity passed as a trailing
+                                  snakemake arg; don't also pass --use-conda
+                                  alongside this.
   --profile TEXT                  Snakemake profile
   --snake-default TEXT            Customise Snakemake runtime args  [default:
                                   --rerun-incomplete, --printshellcmds,
@@ -182,6 +190,7 @@ Options:
 * `--databases` - path to the databases directory [default: wherever `phables install` put them]
 * `--use-conda` / `--no-use-conda` - use conda for Snakemake rules  [default: `use-conda`]
 * `--conda-prefix` - custom conda env directory
+* `--container` - run the whole workflow from a single container image instead of per-rule conda envs (needs `--use-singularity`, and `--no-use-conda`) -- see [Running from a single container](container.md)
 * `--snake-default` - customise Snakemake runtime args  [default: `--rerun-incomplete, --printshellcmds, --nolock, --show-failed-logs`]
 
 ### Phage-gene detection: `--phagedetection`

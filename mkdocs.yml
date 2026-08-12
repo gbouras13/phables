@@ -20,6 +20,7 @@ nav:
         - Assemble: assemble.md
         - Usage: usage.md
         - Building the hallmark database: hallmark_db.md
+        - Running from a single container: container.md
         - FAQ: faq.md
     - EVALUATION:
         - Running CheckV: quality.md

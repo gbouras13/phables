@@ -25,7 +25,9 @@ if GC == "pyrodigal-gv":
         log:
             os.path.join(LOGSDIR, "gene_call_pyrodigal_gv.log")
         conda:
-            os.path.join("..", "envs", "genecall.yaml")
+            None if CONTAINER_IMAGE else os.path.join("..", "envs", "genecall.yaml")
+        container:
+            CONTAINER_IMAGE
         script:
             os.path.join("..", "scripts", "gene_caller.py")
 
@@ -46,7 +48,9 @@ else:
             out = os.path.join(LOGSDIR, "gene_call_fraggenescan_out.log"),
             err = os.path.join(LOGSDIR, "gene_call_fraggenescan_err.log"),
         conda:
-            os.path.join("..", "envs", "smg.yaml")
+            None if CONTAINER_IMAGE else os.path.join("..", "envs", "smg.yaml")
+        container:
+            CONTAINER_IMAGE
         shell:
             """
                 run_FragGeneScan.pl -genome={input.genome} -out={params.frag} -complete=0 -train=complete -thread={threads} 1>{log.out} 2>{log.err}
@@ -67,7 +71,9 @@ rule scan_smg:
         hmm_out=os.path.join(LOGSDIR, "smg_scan_hmm_out.log"),
         hmm_err=os.path.join(LOGSDIR, "smg_scan_hmm_err.log")
     conda:
-        os.path.join("..", "envs", "smg.yaml")
+        None if CONTAINER_IMAGE else os.path.join("..", "envs", "smg.yaml")
+    container:
+        CONTAINER_IMAGE
     shell:
         """
             hmmsearch --domtblout {output.hmmout} --cut_tc --cpu {threads} {input.hmm} {input.faa} 1>{log.hmm_out} 2> {log.hmm_err}
@@ -91,8 +97,10 @@ rule scan_phrogs:
         tmp = os.path.join(OUTDIR, "preprocess", "phrogs", "tmp"),
     log:
         os.path.join(LOGSDIR, "phrogs_scan.log")
-    conda: 
-        os.path.join("..", "envs", "mmseqs.yaml")
+    conda:
+        None if CONTAINER_IMAGE else os.path.join("..", "envs", "mmseqs.yaml")
+    container:
+        CONTAINER_IMAGE
     shell:
         """
         mkdir -p {params.out_path}
@@ -208,7 +216,9 @@ if PD == "prostt5-foldseek":
         log:
             os.path.join(LOGSDIR, "build_hallmark_query_db.log")
         conda:
-            os.path.join("..", "envs", "foldseek.yaml")
+            None if CONTAINER_IMAGE else os.path.join("..", "envs", "foldseek.yaml")
+        container:
+            CONTAINER_IMAGE
         script:
             os.path.join("..", "scripts", "build_foldseek_query_db.py")
 
@@ -261,7 +271,9 @@ if PD == "prostt5-foldseek":
         log:
             os.path.join(LOGSDIR, "scan_hallmark.log")
         conda:
-            os.path.join("..", "envs", "foldseek.yaml")
+            None if CONTAINER_IMAGE else os.path.join("..", "envs", "foldseek.yaml")
+        container:
+            CONTAINER_IMAGE
         shell:
             """
             foldseek search {params.query_prefix} {input.hallmark_db} {params.result} {params.tmp} \

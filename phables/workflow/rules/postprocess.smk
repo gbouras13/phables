@@ -75,7 +75,9 @@ rule coverm_map_genomes:
     resources:
         mem_mb = config["resources"]["jobMem"]
     conda:
-        os.path.join("..", "envs", "coverm.yaml")
+        None if CONTAINER_IMAGE else os.path.join("..", "envs", "coverm.yaml")
+    container:
+        CONTAINER_IMAGE
     log:
         os.path.join(LOGSDIR, "coverm_map_genomes.{sample}.log")
     shell:
@@ -94,7 +96,9 @@ rule coverm_bam2counts_genomes:
     output:
         temp(os.path.join(OUTDIR, "postprocess", "temp", "{sample}.cov"))
     conda:
-        os.path.join("..", "envs", "coverm.yaml")
+        None if CONTAINER_IMAGE else os.path.join("..", "envs", "coverm.yaml")
+    container:
+        CONTAINER_IMAGE
     log:
         os.path.join(LOGSDIR, "coverm_bam2counts_genomes.{sample}.log")
     shell:
@@ -147,6 +151,8 @@ rule format_genome_coverage:
     log:
         os.path.join(LOGSDIR, "format_koverage_results_output.log")
     conda:
-        os.path.join("..", "envs", "phables.yaml")
+        None if CONTAINER_IMAGE else os.path.join("..", "envs", "phables.yaml")
+    container:
+        CONTAINER_IMAGE
     script:
         os.path.join("..", "scripts", "format_koverage_results.py")

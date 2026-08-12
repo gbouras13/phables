@@ -42,6 +42,8 @@ rule run_phables:
     log:
         os.path.join(LOGSDIR, "phables_output.log")
     conda:
-        os.path.join("..", "envs", "phables.yaml")
+        None if CONTAINER_IMAGE else os.path.join("..", "envs", "phables.yaml")
+    container:
+        CONTAINER_IMAGE
     script:
         os.path.join("..", "scripts", "phables.py")
