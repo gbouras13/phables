@@ -118,10 +118,17 @@ Two things it deliberately does **not** do, both of which broke a real build:
   so Snakemake reports "Nothing to be done", the DAG is empty and the `curl`
   env is silently never built.
 `container/test_image.sh` then smoke-tests the result and fails the build if any
-env is missing a binary the rules actually invoke, if the ambient torch isn't a
-ROCm build, or if any pre-built env turns out to contain a torch of its own —
-that last one being the regression that would mean a second copy got installed
-after all.
+env is missing a binary the rules actually invoke, if torch/pholdlib aren't
+importable in the ambient python, or if any pre-built env turns out to contain a
+torch of its own — that last one being the regression that would mean a second
+copy got installed after all.
+
+It reports the base torch's build flavour (`torch.version.hip`) but does **not**
+assert on it. The Pawsey base is a source build reporting e.g.
+`2.7.1a0+gite2d141d`, with no `+rocm6.3` suffix; an earlier version of this
+script tested for the substring `rocm` and failed a perfectly good ROCm build at
+the very last step of a multi-GB image. What that torch is compiled against is
+Pawsey's business.
 
 **Disk**: this image is large — a ~14GB compressed ROCm base plus the conda
 envs. The CI workflow runs `jlumbroso/free-disk-space` first because a stock
@@ -133,19 +140,20 @@ real disk and pushing manually is the fallback.
 
 ## Status
 
-A real `docker build` got as far as the env pre-build step before failing on
-the two issues listed above; both are fixed, and `prebuild_envs.sh` has since
-been run end-to-end (with its `--conda-create-envs-only` calls swapped for
-dry-runs) so that its invocations, the synthetic input generation and the
-cleanup are known to work as written. `--gpu-backend system` was verified to
-declare no `prostt5-*` env at all (five envs instead of six, via
-`--list-conda-envs`), which is what makes the torch reuse real rather than
-aspirational. The pinned conda packages were confirmed to exist for
-`linux-64`/`noarch`.
+A real `docker build` now gets all the way through the image and into
+`test_image.sh`. Confirmed working on a real build:
 
-Still unverified: a complete `docker build` (the conda solves themselves, the
-pip install into the base python leaving its torch untouched, and
-`test_image.sh` against a real image), and any Setonix Apptainer run —
-including whether ProstT5 actually sees the GPU through `--rocm`. Build it,
-push a tag, and put one real sample through it before trusting it for
-production batches.
+- All **8** per-rule conda envs solve and install (coverm, genecall, smg,
+  mmseqs, foldseek, phylotree, phables, curl) — including the pins that were
+  only repodata-checked before (`mmseqs2=13.45111`, `cogent3<2026.7`).
+- **No `prostt5-*` env is created**, so no second torch is downloaded — the
+  torch reuse works as designed.
+- Installing phables/Snakemake/pholdlib into the base python leaves its torch
+  untouched (the build's own before/after assertion passed).
+- Every per-rule binary resolves inside a pre-built env.
+
+Still unverified: a Setonix Apptainer run — in particular whether ProstT5
+actually sees the GPU through `singularity exec --rocm`, which no build-time
+check can answer. Pull the `.sif`, put one real sample through it, and confirm
+predict_3di lands on the GPU rather than silently falling back to CPU before
+trusting this for production batches.

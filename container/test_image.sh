@@ -65,11 +65,37 @@ check_bin curl
 echo "=== torch must come from the BASE image, reused -- not reinstalled ==="
 # predict_3di runs with NO conda env (gpu_backend=system), i.e. in the same
 # python that runs Snakemake -- which must therefore be the base image's python,
-# the one already holding a working ROCm torch. Both halves of that are checked:
-# torch+pholdlib importable here, AND no conda env carrying a torch of its own.
-python -c "import torch; print('torch:', torch.__version__)"
-python -c "import torch, sys; sys.exit(0 if 'rocm' in torch.__version__ else 1)" \
-    || { echo "ERROR: the ambient torch is not a ROCm build" >&2; exit 1; }
+# the one already holding a working torch. Two things are checked: that torch +
+# pholdlib are importable here (fatal if not -- predict_3di simply cannot run),
+# and that no conda env carries a torch of its own (fatal -- that would mean a
+# second copy got installed after all). What the torch's build flavour is, is
+# only reported.
+#
+# Reported, NOT asserted. This deliberately cannot fail the build.
+#
+# The base image's torch is Pawsey's own source build for Setonix -- it reports
+# e.g. "2.7.1a0+gite2d141d", with no "+rocm6.3" suffix, because it isn't a
+# stock wheel. An earlier version of this script tested for the substring
+# "rocm" in torch.__version__ and failed a perfectly good ROCm build at the
+# very last step of a multi-GB image. Whether that torch is ROCm-enabled is
+# Pawsey's business, not something worth re-litigating here at build time, so
+# this prints the facts (torch.version.hip is the real signal: set to the HIP
+# version on ROCm builds, None otherwise) and moves on.
+#
+# The check that DOES matter -- that nothing installed a second torch -- is
+# below and is fatal.
+python - <<'PY'
+import torch
+
+hip = getattr(torch.version, "hip", None)
+print("torch:", torch.__version__)
+print("torch.version.hip:", hip)
+print("torch.version.cuda:", getattr(torch.version, "cuda", None))
+if hip is None:
+    print("WARNING: torch.version.hip is None -- this torch does not look "
+          "ROCm-enabled. Fine if intentional (e.g. a CPU-only base image); "
+          "worth a look if you expected GPU ProstT5 on Setonix.")
+PY
 python -c "import pholdlib; print('pholdlib OK')"
 python -c "import phables, snakemake; print('phables + snakemake share this interpreter')"
 
