@@ -31,8 +31,9 @@ echo "=== pre-built env count ==="
 n=$(find "$PREFIX" -maxdepth 1 -mindepth 1 -type d | wc -l)
 echo "found $n env directories"
 find "$PREFIX" -maxdepth 1 -mindepth 1 -type d -exec basename {} \;
-# 6 distinct env files are reachable at minimum (coverm, genecall, smg, mmseqs,
-# phables, curl) before counting foldseek/prostt5-rocm/prostt5-cpu/phylotree.
+# 6 distinct env files are reachable at minimum: coverm, genecall, smg, mmseqs,
+# phables, curl -- before counting foldseek and phylotree. No prostt5-* env is
+# expected (or wanted): gpu_backend=system reuses the base image's torch.
 test "$n" -ge 6
 
 # Finds an executable in any pre-built env; fails if no env provides it.
@@ -61,34 +62,32 @@ check_bin run_FragGeneScan.pl
 check_bin mafft
 check_bin curl
 
-echo "=== torch must come from the prostt5-rocm env, not the base image ==="
-# The base image ships its own system-python torch 2.7.1, which the workflow
-# does NOT use. predict_3di runs inside the prostt5-rocm conda env, whose torch
-# is 2.9.1+rocm6.3 (workflow/envs/prostt5-rocm.yaml). If nothing here reports
-# 2.9.1+rocm, that env didn't build properly and predict_3di would be running
-# on the wrong stack.
-found=0
+echo "=== torch must come from the BASE image, reused -- not reinstalled ==="
+# predict_3di runs with NO conda env (gpu_backend=system), i.e. in the same
+# python that runs Snakemake -- which must therefore be the base image's python,
+# the one already holding a working ROCm torch. Both halves of that are checked:
+# torch+pholdlib importable here, AND no conda env carrying a torch of its own.
+python -c "import torch; print('torch:', torch.__version__)"
+python -c "import torch, sys; sys.exit(0 if 'rocm' in torch.__version__ else 1)" \
+    || { echo "ERROR: the ambient torch is not a ROCm build" >&2; exit 1; }
+python -c "import pholdlib; print('pholdlib OK')"
+python -c "import phables, snakemake; print('phables + snakemake share this interpreter')"
+
+# A torch inside any pre-built env means a second copy got installed after all,
+# which is the exact regression this layout exists to prevent.
 for e in "$PREFIX"/*/; do
-    if [ -x "${e}bin/python" ]; then
-        if "${e}bin/python" - <<'PY' 2>/dev/null
-import sys
-try:
-    import torch
-except Exception:
-    sys.exit(1)
-sys.exit(0 if torch.__version__.startswith("2.9.1") and "rocm" in torch.__version__ else 1)
-PY
-        then
-            echo "OK: torch 2.9.1+rocm in $e"
-            "${e}bin/python" -c "import pholdlib; print('pholdlib OK')"
-            found=1
-            break
-        fi
+    if [ -x "${e}bin/python" ] && "${e}bin/python" -c "import torch" 2>/dev/null; then
+        echo "ERROR: a pre-built conda env contains its own torch: $e" >&2
+        echo "       gpu_backend=system should mean no prostt5-* env is built." >&2
+        exit 1
     fi
 done
-if [ "$found" -ne 1 ]; then
-    echo "ERROR: no pre-built env provides torch 2.9.1+rocm" >&2
-    exit 1
-fi
+echo "OK: no pre-built env ships a duplicate torch"
+
+echo "=== image's default gpu_backend must be 'system' ==="
+CONFIG="$(python -c 'import phables, os; print(os.path.join(os.path.dirname(phables.__file__), "config", "config.yaml"))')"
+grep -q '^gpu_backend: system$' "$CONFIG" \
+    || { echo "ERROR: $CONFIG does not default gpu_backend to system" >&2; exit 1; }
+echo "OK: $CONFIG defaults to system"
 
 echo "=== all image tests passed ==="

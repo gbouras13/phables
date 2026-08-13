@@ -65,25 +65,22 @@ phables run "${COMMON[@]}" --output /tmp/envbuild1 --conda-create-envs-only
 phables run "${COMMON[@]}" --output /tmp/envbuild2 \
     --genecaller pyrodigal-gv --conda-create-envs-only
 
-# 3. ProstT5 + foldseek detection on ROCm -- the reason this image exists
+# 3. ProstT5 + foldseek detection -> the foldseek env (and, via
+#    --gpu-backend system, NO prostt5-* torch env at all: predict_3di reuses the
+#    base image's already-working ROCm torch, which is installed in the same
+#    python running Snakemake here). This is the whole reason no multi-GB
+#    second torch is downloaded during this build. Deliberately NOT `rocm`/
+#    `cpu`/`cuda` -- each of those would solve and download their own torch.
 phables run "${COMMON[@]}" --output /tmp/envbuild3 \
-    --phagedetection prostt5-foldseek --gpu-backend rocm --conda-create-envs-only
+    --phagedetection prostt5-foldseek --gpu-backend system --conda-create-envs-only
 
-# 4. Same, CPU backend. Built because gpu_backend's own config default is `cpu`:
-#    without this, forgetting `--gpu-backend rocm` inside the container would hit
-#    a missing env on a read-only filesystem. (cuda is deliberately NOT built --
-#    this is a ROCm image for Setonix, and the CUDA wheels would add several GB
-#    that could never be used on this hardware.)
-phables run "${COMMON[@]}" --output /tmp/envbuild4 \
-    --phagedetection prostt5-foldseek --gpu-backend cpu --conda-create-envs-only
-
-# 5. Optional phylogenetic tree -> phylotree env (MAFFT + cogent3/piqtree).
+# 4. Optional phylogenetic tree -> phylotree env (MAFFT + cogent3/piqtree).
 #    Note conda resolves cogent3 fine, unlike pip, where every published
 #    release is a prerelease and a plain version range matches nothing.
-phables run "${COMMON[@]}" --output /tmp/envbuild5 \
+phables run "${COMMON[@]}" --output /tmp/envbuild4 \
     --build-tree --conda-create-envs-only
 
-# 6. install.smk's own env (curl), so `phables install` works inside here too.
+# 5. install.smk's own env (curl), so `phables install` works inside here too.
 #    Deliberately pointed at an EMPTY databases dir, not "$DB": the placeholder
 #    files in $DB satisfy install.smk's own download targets, so Snakemake says
 #    "Nothing to be done", the DAG is empty, and NO env gets created -- the
@@ -91,9 +88,9 @@ phables run "${COMMON[@]}" --output /tmp/envbuild5 \
 #    four *_download rules in the DAG so their conda env actually gets built.
 #    (--conda-create-envs-only still downloads nothing.)
 mkdir -p /tmp/empty_db
-phables install --output /tmp/envbuild6 --databases /tmp/empty_db --conda-create-envs-only
+phables install --output /tmp/envbuild5 --databases /tmp/empty_db --conda-create-envs-only
 
-rm -rf /tmp/envbuild1 /tmp/envbuild2 /tmp/envbuild3 /tmp/envbuild4 /tmp/envbuild5 /tmp/envbuild6 \
+rm -rf /tmp/envbuild1 /tmp/envbuild2 /tmp/envbuild3 /tmp/envbuild4 /tmp/envbuild5 \
        "$DB" "$WORK" /tmp/empty_db
 conda clean -a -y
 

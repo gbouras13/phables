@@ -56,13 +56,20 @@ Options:
                                   default) or prostt5-foldseek (structural;
                                   needs --hallmark-db, --hallmark-categories
                                   and --prostt5-checkpoint)  [default: mmseqs]
-  --gpu-backend [cpu|cuda|rocm]   PyTorch build for the ProstT5 conda env:
+  --gpu-backend [cpu|cuda|rocm|system]
+                                  PyTorch build for the ProstT5 conda env:
                                   cpu, cuda, or rocm (e.g. Setonix's MI250X
                                   nodes). Independent of --prostt5-cpu, which
                                   forces ProstT5 onto the CPU device at
                                   runtime even inside a GPU-capable env --
-                                  this controls which env gets built
-                                  [default: cpu]
+                                  this controls which env gets built. 'system'
+                                  builds NO env at all and uses the torch +
+                                  pholdlib already installed in the ambient
+                                  python -- for when a working GPU torch is
+                                  already in place (e.g. inside the container,
+                                  or a module-loaded torch on HPC) and
+                                  installing a second one would be wasteful or
+                                  wrong  [default: cpu]
   --foldseek-gpu                  use foldseek's CUDA GPU search mode for the
                                   hallmark scan (requires --gpu-backend cuda,
                                   a CUDA-capable foldseek build on PATH -- not
@@ -195,7 +202,7 @@ Two independent methods for finding phage-like genes on unitigs, feeding the sam
 * `--prostt5-half-precision` / `--prostt5-full-precision` - run ProstT5 in half precision (ignored on CPU) [default: `prostt5-half-precision`]
 * `--prostt5-cpu` - force ProstT5 onto CPU even when a GPU is available
 * `--prostt5-max-residues`, `--prostt5-max-seq-len`, `--prostt5-max-batch` - ProstT5 batching knobs, device-specific -- tune per GPU rather than trusting the defaults on unfamiliar hardware [defaults: 4000, 4000, 20]
-* `--gpu-backend` - which PyTorch build the ProstT5 conda env solves against: `cpu`, `cuda`, or `rocm` (e.g. Setonix's MI250X). Independent of `--prostt5-cpu`, which forces the CPU device at runtime even inside a GPU-capable env -- this controls which env gets *built* [default: `cpu`]
+* `--gpu-backend` - which PyTorch build the ProstT5 conda env solves against: `cpu`, `cuda`, or `rocm` (e.g. Setonix's MI250X). Independent of `--prostt5-cpu`, which forces the CPU device at runtime even inside a GPU-capable env -- this controls which env gets *built* [default: `cpu`]. A fourth value, `system`, builds **no** env at all and runs ProstT5 against the `torch`+`pholdlib` already present in the ambient python. Conda envs are isolated, so a rule that declares one can never see a torch installed outside it -- `system` is the only way to reuse an existing, known-good GPU torch (the [container](container.md)'s ROCm base image, or a module-loaded torch on HPC) instead of installing a second copy
 * `--foldseek-gpu` - use Foldseek's CUDA GPU search mode for the hallmark scan. Requires `--gpu-backend cuda`, a CUDA-capable Foldseek build on `PATH` (not the plain bioconda package), and a `*_gpu`-suffixed, `makepaddedseqdb`-prepared hallmark DB
 
 To run all of this from one prebuilt image on HPC (Setonix), see [Running from a single container](container.md) — the image ships every conda env already built, so there are no per-rule container flags to pass.

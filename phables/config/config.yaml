@@ -57,6 +57,15 @@ prostt5_cpu: False
 # gpu_backend controls which env gets *built*. foldseek_gpu (below) is
 # separate again: foldseek's own --gpu mode is CUDA-only, so it stays off
 # regardless of gpu_backend unless explicitly requested and gpu_backend=cuda.
+#
+# A fourth value, `system`, means "don't build an env for predict_3di at all;
+# torch and pholdlib are already installed in the ambient python". Conda envs
+# are isolated, so a rule with a conda: directive can never see a torch that
+# lives outside its env -- `system` is the only way to REUSE an existing,
+# known-good GPU torch instead of installing a second one. That's exactly the
+# situation inside container/Dockerfile, whose ROCm base image already ships a
+# working torch, and it's also how you'd use a module-loaded torch on HPC.
+# The image sets this as its own default (see container/Dockerfile).
 gpu_backend: cpu
 foldseek_gpu: False
 # Batch limits are device-specific -- the defaults are conservative CPU/laptop-MPS

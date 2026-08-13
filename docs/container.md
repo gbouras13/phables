@@ -50,7 +50,7 @@ singularity exec --rocm \
     phables run --input assembly_graph.gfa --reads fastq \
         --output phables_out \
         --databases /scratch/.../all_databases/databases \
-        --phagedetection prostt5-foldseek --gpu-backend rocm \
+        --phagedetection prostt5-foldseek \
         --prostt5-checkpoint /scratch/.../model.pt \
         --threads 8
 ```
@@ -65,24 +65,30 @@ Notes that matter on Setonix:
   (inside the installed package), and Snakemake resolves an env by hashing its
   file content *together with the prefix path* — changing the prefix changes
   the hash, and Snakemake would try to rebuild into a read-only filesystem.
-- **`--gpu-backend rocm`** selects the prostt5-rocm env. The `cpu` env is also
-  prebuilt (it's the config default, so forgetting the flag still works);
-  `cuda` deliberately is not — this is a ROCm image.
+- **Don't pass `--gpu-backend`.** The image defaults it to `system`, meaning
+  ProstT5 runs against the base image's own ROCm torch rather than a conda env.
+  Passing `rocm`/`cpu`/`cuda` would send it looking for a `prostt5-*` env that
+  this image deliberately does not contain — a hard failure on a read-only
+  `.sif`.
 
 ## What's in the image
 
 - **Base**: `quay.io/pawsey/pytorch:2.7.1-rocm6.3.3`, Pawsey's own verified
-  ROCm build, supplying the ROCm userspace matching Setonix's MI250X (gfx90a).
-  Its system-python torch (2.7.1) is *not* what the workflow uses and goes
-  untouched.
-- **Miniforge** at `/opt/miniforge3`, plus Snakemake — the thing that reads the
-  prebuilt envs, so deliberately not one of them.
-- **phables**, pip-installed from the build context (the commit CI tagged).
+  ROCm build, supplying both the ROCm userspace matching Setonix's MI250X
+  (gfx90a) **and the torch the workflow actually uses**.
+- **phables, Snakemake and pholdlib installed into that base python** — not
+  into miniforge's. Snakemake runs a `script:` rule that declares no conda env
+  using its own interpreter, so that interpreter has to be the one holding
+  torch. The build asserts torch's version is unchanged across the pip install,
+  since a silently-replaced torch is the exact failure this avoids.
+- **Miniforge** at `/opt/miniforge3`, appended to `PATH` (never prepended, so
+  it cannot shadow the base python). It exists only to provide the `conda`
+  binary that builds the envs below.
 - **Every per-rule conda env**, prebuilt by `container/prebuild_envs.sh`:
   coverm (minimap2/samtools/CoverM), genecall (FragGeneScan), pyrodigal-gv,
-  smg (HMMER), mmseqs, foldseek, phylotree (MAFFT + cogent3/piqtree),
-  prostt5-rocm (torch 2.9.1+rocm6.3 + pholdlib), prostt5-cpu, and curl for
-  `phables install`.
+  smg (HMMER), mmseqs, foldseek, phylotree (MAFFT + cogent3/piqtree), and curl
+  for `phables install`. **No `prostt5-*` env** — that's the point of
+  `system`.
 
 **Databases are not included** — PHROGs and the hallmark DB are multi-GB and
 separately versioned. Mount them and point `--databases` at them, exactly as
@@ -112,26 +118,34 @@ Two things it deliberately does **not** do, both of which broke a real build:
   so Snakemake reports "Nothing to be done", the DAG is empty and the `curl`
   env is silently never built.
 `container/test_image.sh` then smoke-tests the result and fails the build if any
-env is missing a binary the rules actually invoke, or if torch didn't come from
-the prostt5-rocm env.
+env is missing a binary the rules actually invoke, if the ambient torch isn't a
+ROCm build, or if any pre-built env turns out to contain a torch of its own —
+that last one being the regression that would mean a second copy got installed
+after all.
 
-**Disk**: this image is large — a ~14GB compressed ROCm base plus conda envs
-including two torch builds. The CI workflow runs `jlumbroso/free-disk-space`
-first because a stock GitHub Actions runner has only ~14GB free and the base
-alone won't fit. Even with that, this is close to the limit of what a hosted
-runner can build; if CI starts failing on `no space left on device`, building
-on a machine with real disk and pushing manually is the fallback.
+**Disk**: this image is large — a ~14GB compressed ROCm base plus the conda
+envs. The CI workflow runs `jlumbroso/free-disk-space` first because a stock
+GitHub Actions runner has only ~14GB free and the base alone won't fit. Reusing
+the base torch rather than installing a second one keeps several GB off the
+total, but this is still close to the limit of what a hosted runner can build;
+if CI starts failing on `no space left on device`, building on a machine with
+real disk and pushing manually is the fallback.
 
 ## Status
 
 A real `docker build` got as far as the env pre-build step before failing on
 the two issues listed above; both are fixed, and `prebuild_envs.sh` has since
 been run end-to-end (with its `--conda-create-envs-only` calls swapped for
-dry-runs) so that all six invocations, the synthetic input generation and the
-cleanup are known to work as written. The pinned conda packages were confirmed
-to exist for `linux-64`/`noarch`.
+dry-runs) so that its invocations, the synthetic input generation and the
+cleanup are known to work as written. `--gpu-backend system` was verified to
+declare no `prostt5-*` env at all (five envs instead of six, via
+`--list-conda-envs`), which is what makes the torch reuse real rather than
+aspirational. The pinned conda packages were confirmed to exist for
+`linux-64`/`noarch`.
 
-Still unverified: a complete `docker build` (the conda solves themselves, and
-`test_image.sh` against a real image), and any Setonix Apptainer run. Build it,
+Still unverified: a complete `docker build` (the conda solves themselves, the
+pip install into the base python leaving its torch untouched, and
+`test_image.sh` against a real image), and any Setonix Apptainer run —
+including whether ProstT5 actually sees the GPU through `--rocm`. Build it,
 push a tag, and put one real sample through it before trusting it for
 production batches.

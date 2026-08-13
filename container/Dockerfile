@@ -1,9 +1,9 @@
 #
 # phables -- ONE monolithic image for Setonix: ROCm base + conda + every
 # per-rule conda env pre-built INSIDE the image. Build it once, convert it to a
-# single .sif, and every `phables run` inside it finds its conda envs already
-# there. Same strategy as hybracter's own container (miniforge installed into
-# the image, envs materialised at build time), NOT the per-rule `container:`
+# single .sif, and every `phables run` inside it finds its envs already there.
+# Same strategy as hybracter's own container (miniforge installed into the
+# image, envs materialised at build time), NOT the per-rule `container:`
 # directive approach -- phables has no --container/--prostt5-container flags
 # any more, and its Snakemake rules carry plain `conda:` directives only.
 #
@@ -13,15 +13,24 @@
 # Many array tasks all needing the same not-yet-built shared env at once
 # corrupt each other's `mamba env create` ("Fatal Python error:
 # init_fs_encoding ... no codec search functions registered"). With every env
-# already baked into the image there is nothing left to create at runtime, and
-# so nothing left to race.
+# baked into the image there is nothing left to create at runtime, and so
+# nothing left to race.
 #
-# Base is Pawsey's own verified-working ROCm image, as requested: it supplies
-# the ROCm userspace matching Setonix's MI250X (gfx90a) kernel driver. NOTE
-# that the base's own system-python torch (2.7.1) is NOT what the workflow
-# uses -- predict_3di runs inside the prostt5-rocm conda env built below, which
-# brings its own torch (2.9.1+rocm6.3, see workflow/envs/prostt5-rocm.yaml).
-# The base image's torch is left untouched and simply goes unused.
+# TORCH: this image does NOT install a second PyTorch. The Pawsey ROCm base
+# already ships a torch that is known to work on Setonix's MI250X (gfx90a), so
+# predict_3di reuses it via `--gpu-backend system` (see below) instead of a
+# prostt5-* conda env. That is the ONLY way to reuse it: conda envs are
+# isolated, so a rule declaring `conda:` can never see a torch installed
+# outside its env -- which is exactly why an earlier version of this image
+# ended up downloading multiple GB of a second, unverified torch.
+#
+# The consequence for how the image is built: phables and Snakemake are
+# installed into the BASE IMAGE'S python, not into miniforge's. Snakemake runs
+# `script:` rules that declare no conda env using its own interpreter, so that
+# interpreter has to be the one holding torch. Miniforge is installed only to
+# provide the `conda` binary that BUILDS the other per-rule envs, and is
+# appended to PATH rather than prepended so it can never shadow the base
+# python.
 #
 # See ../docs/container.md for how to build the .sif and run it on Setonix.
 #
@@ -37,32 +46,55 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Pin down the base image's python BEFORE miniforge exists, so later steps can
+# target it unambiguously no matter where the base keeps it. Everything phables
+# needs goes into this interpreter.
+RUN command -v python3 > /opt/base_python_path && \
+    ln -sf "$(cat /opt/base_python_path)" /usr/local/bin/python && \
+    echo "base python: $(cat /opt/base_python_path)" && \
+    "$(cat /opt/base_python_path)" -c "import torch; print('base torch:', torch.__version__)"
+
 #
-# Miniforge inside the image -- hybracter's containers/HPC/Dockerfile does
-# exactly this (wget the installer, `bash ... -b -p <prefix>`) rather than
-# relying on a conda that may or may not exist on the host. conda-forge is
-# miniforge's default channel, so no extra channel config is needed.
+# Miniforge -- installed ONLY for its `conda`/`mamba` binaries, which Snakemake
+# shells out to when building the per-rule envs. Deliberately APPENDED to PATH:
+# prepending it would make miniforge's python the default, and phables would
+# then run under an interpreter with no torch in it, silently defeating the
+# whole point of building on a ROCm base.
 #
 ENV CONDA_DIR=/opt/miniforge3
 RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh && \
     bash /tmp/miniforge.sh -b -p "${CONDA_DIR}" && \
     rm /tmp/miniforge.sh
-ENV PATH="${CONDA_DIR}/bin:${PATH}"
-
-# Snakemake lives in the base conda env alongside phables itself -- it is the
-# thing that READS the pre-built per-rule envs, so it must not be one of them.
-RUN conda install -y -c conda-forge -c bioconda \
-        "snakemake>=8" \
-    && conda clean -a -y
+ENV PATH="${PATH}:${CONDA_DIR}/bin"
 
 #
-# phables from the exact source in this build context. CI builds this image per
-# commit and tags it by commit SHA, so this is the checked-out tree -- not a
-# separately-pinned git ref that could drift from the rules and env files the
-# image bakes in.
+# phables + Snakemake + pholdlib into the BASE python. pholdlib declares no
+# torch version constraint, so pip pulls its own dependencies (transformers,
+# sentencepiece, h5py, ...) without touching the already-installed torch -- the
+# assertion below fails the build if that ever stops being true, since a
+# silently-replaced torch is precisely the failure this image exists to avoid.
 #
 COPY . /opt/phables_src
-RUN pip install /opt/phables_src
+RUN BASE_PY="$(cat /opt/base_python_path)" && \
+    TORCH_BEFORE="$("$BASE_PY" -c 'import torch; print(torch.__version__)')" && \
+    "$BASE_PY" -m pip install --no-cache-dir "snakemake>=8" pholdlib /opt/phables_src && \
+    TORCH_AFTER="$("$BASE_PY" -c 'import torch; print(torch.__version__)')" && \
+    echo "torch before=${TORCH_BEFORE} after=${TORCH_AFTER}" && \
+    test "$TORCH_BEFORE" = "$TORCH_AFTER"
+
+#
+# Make `system` the image's own default GPU backend, so a plain
+# `phables run --phagedetection prostt5-foldseek` inside the container reuses
+# the base torch with no extra flag. Without this the config default (`cpu`)
+# would send predict_3di looking for a prostt5-cpu env that this image
+# deliberately does not contain -- and a .sif is read-only, so that is a hard
+# failure rather than a slow rebuild.
+#
+RUN BASE_PY="$(cat /opt/base_python_path)" && \
+    CONFIG="$("$BASE_PY" -c 'import phables, os; print(os.path.join(os.path.dirname(phables.__file__), "config", "config.yaml"))')" && \
+    sed -i 's/^gpu_backend: .*/gpu_backend: system/' "$CONFIG" && \
+    grep -q '^gpu_backend: system$' "$CONFIG" && \
+    echo "image default gpu_backend set to system in $CONFIG"
 
 # Pre-build every per-rule conda env. See the script for the full rationale
 # (default --conda-prefix, placeholder databases, one pass per flag combo).

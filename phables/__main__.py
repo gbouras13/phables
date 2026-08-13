@@ -228,9 +228,14 @@ def run_options(func):
                 "PyTorch build for the ProstT5 conda env: cpu, cuda, or rocm "
                 "(e.g. Setonix's MI250X nodes). Independent of --prostt5-cpu, "
                 "which forces ProstT5 onto the CPU device at runtime even "
-                "inside a GPU-capable env -- this controls which env gets built"
+                "inside a GPU-capable env -- this controls which env gets "
+                "built. 'system' builds NO env at all and uses the torch + "
+                "pholdlib already installed in the ambient python -- for when "
+                "a working GPU torch is already in place (e.g. inside the "
+                "container, or a module-loaded torch on HPC) and installing a "
+                "second one would be wasteful or wrong"
             ),
-            type=click.Choice(["cpu", "cuda", "rocm"]),
+            type=click.Choice(["cpu", "cuda", "rocm", "system"]),
             show_default=True,
         ),
         click.option(

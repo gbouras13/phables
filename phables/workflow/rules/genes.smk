@@ -147,13 +147,20 @@ if PD == "prostt5-foldseek":
             max_batch = config["prostt5_max_batch"],
         log:
             os.path.join(LOGSDIR, "predict_3di.log")
+        # gpu_backend selects which torch build this rule runs against.
+        # cpu/cuda/rocm each need a different PyTorch wheel, and a conda env is
+        # solved once from a static file, so those are three separate env files
+        # rather than one file with a runtime switch.
+        #
+        # `system` is the odd one out and takes NO conda: directive at all:
+        # conda envs are isolated, so a rule that declares one can never see a
+        # torch installed outside it. Omitting the directive is therefore the
+        # only way to REUSE an already-working torch (the container's ROCm base
+        # image, a module-loaded torch on HPC) instead of installing a second
+        # copy. The rule then runs in whichever python is running Snakemake,
+        # which must already provide torch + pholdlib.
         conda:
-            # gpu_backend selects which torch build this env solves against --
-            # cpu/cuda/rocm need different PyTorch wheels (conda envs are
-            # solved once from a static file, so this has to be three files,
-            # not one file with a runtime switch). See the individual env
-            # files for what each backend actually needs and why.
-            os.path.join("..", "envs", f"prostt5-{GPU_BACKEND}.yaml")
+            None if GPU_BACKEND == "system" else os.path.join("..", "envs", f"prostt5-{GPU_BACKEND}.yaml")
         script:
             os.path.join("..", "scripts", "predict_3di.py")
 
