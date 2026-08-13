@@ -1,6 +1,8 @@
 #!/bin/bash
 # Pre-builds EVERY per-rule conda env into the image, at Docker build time.
-# Run from container/Dockerfile; not meant to be run on a host.
+# Run from container/Dockerfile; not meant to be run on a host. Takes no
+# arguments and reads nothing from the repo -- it generates its own throwaway
+# inputs (see below), so it works in a bare CI checkout.
 #
 # Envs go into phables' own DEFAULT --conda-prefix (snake_base("workflow/conda"),
 # i.e. inside the installed package) deliberately: a user inside the resulting
@@ -28,8 +30,8 @@
 
 set -euxo pipefail
 
-SRC="${1:-/opt/phables_src}"
 DB=/tmp/placeholder_db
+WORK=/tmp/envbuild_inputs
 
 mkdir -p "$DB/phrogs_mmseqs_db" "$DB/hallmark_db"
 touch "$DB/marker.hmm" \
@@ -38,8 +40,22 @@ touch "$DB/marker.hmm" \
       "$DB/hallmark_db/hallmark_db" \
       "$DB/hallmark_db/hallmark_categories.tsv"
 
-GFA="${SRC}/tests/data/ERR1301161/assembly_graph_after_simplification.gfa"
-READS="${SRC}/tests/data/ERR1301161"
+# Synthetic minimal inputs, generated here rather than taken from
+# tests/data/: that directory is in .gitignore, so it does NOT exist in a
+# fresh clone or in a CI checkout -- depending on it made the image build
+# fail with "Invalid value for '--reads': Path ... does not exist". Nothing
+# below is ever actually processed (no job runs under
+# --conda-create-envs-only); these files exist purely so click's exists=True
+# checks pass and the DAG can resolve. Verified to produce the same DAG as
+# the real test data.
+mkdir -p "$WORK/reads"
+printf 'H\tVN:Z:1.0\nS\tedge_1\tACGTACGTACGTACGTACGTACGTACGTACGT\tLN:i:32\nS\tedge_2\tTTTTGGGGCCCCAAAATTTTGGGGCCCCAAAA\tLN:i:32\nL\tedge_1\t+\tedge_2\t+\t0M\n' \
+    > "$WORK/assembly_graph.gfa"
+printf '@r1\nACGT\n+\nIIII\n' | gzip > "$WORK/reads/sample1_R1.fastq.gz"
+printf '@r1\nACGT\n+\nIIII\n' | gzip > "$WORK/reads/sample1_R2.fastq.gz"
+
+GFA="$WORK/assembly_graph.gfa"
+READS="$WORK/reads"
 COMMON=(--input "$GFA" --reads "$READS" --databases "$DB" --threads 1)
 
 # 1. default path -> coverm, genecall (FragGeneScan), smg (HMMER), mmseqs, phables
@@ -67,10 +83,18 @@ phables run "${COMMON[@]}" --output /tmp/envbuild4 \
 phables run "${COMMON[@]}" --output /tmp/envbuild5 \
     --build-tree --conda-create-envs-only
 
-# 6. install.smk's own env (curl), so `phables install` works inside here too
-phables install --output /tmp/envbuild6 --databases "$DB" --conda-create-envs-only
+# 6. install.smk's own env (curl), so `phables install` works inside here too.
+#    Deliberately pointed at an EMPTY databases dir, not "$DB": the placeholder
+#    files in $DB satisfy install.smk's own download targets, so Snakemake says
+#    "Nothing to be done", the DAG is empty, and NO env gets created -- the
+#    curl env would silently be missing from the image. An empty dir puts the
+#    four *_download rules in the DAG so their conda env actually gets built.
+#    (--conda-create-envs-only still downloads nothing.)
+mkdir -p /tmp/empty_db
+phables install --output /tmp/envbuild6 --databases /tmp/empty_db --conda-create-envs-only
 
-rm -rf /tmp/envbuild1 /tmp/envbuild2 /tmp/envbuild3 /tmp/envbuild4 /tmp/envbuild5 /tmp/envbuild6 "$DB"
+rm -rf /tmp/envbuild1 /tmp/envbuild2 /tmp/envbuild3 /tmp/envbuild4 /tmp/envbuild5 /tmp/envbuild6 \
+       "$DB" "$WORK" /tmp/empty_db
 conda clean -a -y
 
 echo "=== pre-built conda envs ==="

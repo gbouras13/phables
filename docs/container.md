@@ -95,12 +95,22 @@ rather fetch them from there.
 docker build -f container/Dockerfile -t phables:local .
 ```
 
-`container/prebuild_envs.sh` does the env pre-building; it creates zero-byte
-placeholder database files purely so the Snakemake DAG can *resolve*, then runs
-`--conda-create-envs-only` once per flag combination (gene caller, detection
-mode, GPU backend, tree) so that every reachable env gets built. The
-placeholder trick is what keeps the databases out of the image; it was verified
-by dry-running each of those combinations against zero-byte DB files.
+`container/prebuild_envs.sh` does the env pre-building. It generates its own
+throwaway inputs — a two-segment GFA and a pair of tiny gzipped FASTQs, plus
+zero-byte placeholder database files — purely so the Snakemake DAG can
+*resolve*, then runs `--conda-create-envs-only` once per flag combination (gene
+caller, detection mode, GPU backend, tree) so every reachable env gets built.
+Nothing is ever processed, since no job runs.
+
+Two things it deliberately does **not** do, both of which broke a real build:
+
+- It doesn't use `tests/data/`. That directory is in `.gitignore`, so it
+  doesn't exist in a fresh clone or a CI checkout — depending on it failed with
+  `Invalid value for '--reads': Path ... does not exist`.
+- It points `phables install` at an *empty* databases directory, not the
+  placeholder one. The placeholders satisfy install.smk's own download targets,
+  so Snakemake reports "Nothing to be done", the DAG is empty and the `curl`
+  env is silently never built.
 `container/test_image.sh` then smoke-tests the result and fails the build if any
 env is missing a binary the rules actually invoke, or if torch didn't come from
 the prostt5-rocm env.
@@ -114,10 +124,14 @@ on a machine with real disk and pushing manually is the fallback.
 
 ## Status
 
-Not yet built or run for real. The Snakemake wiring was verified with real
-dry-runs of every flag combination (and of the DAG resolving against
-placeholder databases), the pinned conda packages were confirmed to exist for
-`linux-64`/`noarch`, and both build scripts are syntax-checked — but no
-`docker build` and no Setonix Apptainer run has happened yet. Build it, push a
-tag, and put one real sample through it before trusting it for production
-batches.
+A real `docker build` got as far as the env pre-build step before failing on
+the two issues listed above; both are fixed, and `prebuild_envs.sh` has since
+been run end-to-end (with its `--conda-create-envs-only` calls swapped for
+dry-runs) so that all six invocations, the synthetic input generation and the
+cleanup are known to work as written. The pinned conda packages were confirmed
+to exist for `linux-64`/`noarch`.
+
+Still unverified: a complete `docker build` (the conda solves themselves, and
+`test_image.sh` against a real image), and any Setonix Apptainer run. Build it,
+push a tag, and put one real sample through it before trusting it for
+production batches.

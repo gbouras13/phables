@@ -66,7 +66,7 @@ RUN pip install /opt/phables_src
 
 # Pre-build every per-rule conda env. See the script for the full rationale
 # (default --conda-prefix, placeholder databases, one pass per flag combo).
-RUN bash /opt/phables_src/container/prebuild_envs.sh /opt/phables_src
+RUN bash /opt/phables_src/container/prebuild_envs.sh
 
 # Fail the build loudly rather than pushing a broken image to quay.io.
 RUN bash /opt/phables_src/container/test_image.sh
