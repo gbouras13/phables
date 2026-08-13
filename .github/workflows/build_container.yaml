@@ -24,6 +24,15 @@ jobs:
       # pre-pulled docker images), freeing ~25-30GB. ``tool-cache: false``
       # keeps the runner's node/python toolcache so other actions (checkout,
       # docker login) still work fast.
+      #
+      # NOTE this image is now MONOLITHIC -- on top of that base it installs
+      # miniforge and pre-builds every per-rule conda env, including two torch
+      # builds (rocm + cpu). That is several GB more than the base alone, and
+      # is close to what a hosted runner can do even after this cleanup. If a
+      # build starts failing on "no space left on device", the honest fix is
+      # building on a machine with real disk and pushing manually, not shaving
+      # more off here. The ``df -h`` steps below exist to make that diagnosis
+      # obvious rather than a guess.
       - name: Free up disk space
         uses: jlumbroso/free-disk-space@main
         with:
@@ -45,6 +54,11 @@ jobs:
         run: |
           IMAGE=quay.io/${{ secrets.QUAY_USERNAME }}/phables:${{ github.sha }}
           docker build -f container/Dockerfile -t $IMAGE .
+
+      - name: Show image size and free disk after build
+        run: |
+          docker image ls
+          df -h
 
       - name: Push Docker image
         run: |

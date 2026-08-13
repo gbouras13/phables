@@ -94,20 +94,6 @@ def common_options(func):
             show_default=False,
         ),
         click.option(
-            "--container",
-            default=None,
-            required=False,
-            help=(
-                "container image with every per-rule tool already installed "
-                "(container/Dockerfile), replacing --use-conda's per-rule env "
-                "creation for the WHOLE workflow -- not just predict_3di "
-                "(--prostt5-container). Needs --use-singularity passed as a "
-                "trailing snakemake arg; don't also pass --use-conda alongside "
-                "this."
-            ),
-            type=click.Path(),
-        ),
-        click.option(
             "--profile", help="Snakemake profile", default=None, show_default=False
         ),
         click.option(
@@ -354,18 +340,6 @@ def run_options(func):
             help="max sequences per ProstT5 batch -- device-specific, tune per GPU",
             type=int,
             show_default=True,
-        ),
-        click.option(
-            "--prostt5-container",
-            default=None,
-            required=False,
-            help=(
-                "container image with pholdlib + torch already installed (e.g. "
-                "phold's own image), used instead of a conda env for predict_3di. "
-                "Needs --use-singularity passed as a trailing snakemake arg -- "
-                "--use-conda alone won't honour it. Overrides --gpu-backend for "
-                "this rule."
-            ),
         ),
         click.option(
             "--evalue",

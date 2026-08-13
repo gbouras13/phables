@@ -18,14 +18,6 @@ Options:
   --use-conda / --no-use-conda    Use conda for Snakemake rules  [default:
                                   use-conda]
   --conda-prefix PATH             Custom conda env directory
-  --container PATH                container image with every per-rule tool
-                                  already installed (container/Dockerfile),
-                                  replacing --use-conda's per-rule env
-                                  creation for the WHOLE workflow -- not just
-                                  predict_3di (--prostt5-container). Needs
-                                  --use-singularity passed as a trailing
-                                  snakemake arg; don't also pass --use-conda
-                                  alongside this.
   --profile TEXT                  Snakemake profile
   --snake-default TEXT            Customise Snakemake runtime args  [default:
                                   --rerun-incomplete, --printshellcmds,
@@ -112,13 +104,6 @@ Options:
                                   batch immediately  [default: 4000]
   --prostt5-max-batch INTEGER     max sequences per ProstT5 batch -- device-
                                   specific, tune per GPU  [default: 20]
-  --prostt5-container TEXT        container image with pholdlib + torch
-                                  already installed (e.g. phold's own image),
-                                  used instead of a conda env for predict_3di.
-                                  Needs --use-singularity passed as a trailing
-                                  snakemake arg -- --use-conda alone won't
-                                  honour it. Overrides --gpu-backend for this
-                                  rule.
   --evalue FLOAT                  maximum e-value for phrog annotations
                                   [default: 1e-10]
   --seqidentity FLOAT             minimum sequence identity for phrog
@@ -132,26 +117,26 @@ Options:
   --prefix TEXT                   prefix for genome identifier
   -h, --help                      Show this message and exit.
 
-  
+  
   If you use Phables in your work, please cite Phables as,
-  
+  
   Vijini Mallawaarachchi, Michael J Roach, Przemyslaw Decewicz, 
   Bhavya Papudeshi, Sarah K Giles, Susanna R Grigson, George Bouras, 
   Ryan D Hesse, Laura K Inglis, Abbey L K Hutton, Elizabeth A Dinsdale, 
   Robert A Edwards, Phables: from fragmented assemblies to high-quality 
   bacteriophage genomes, Bioinformatics, Volume 39, Issue 10, 
   October 2023, btad586, https://doi.org/10.1093/bioinformatics/btad586
-  
-  
+  
+  
   For more information on Phables please visit:
   https://phables.readthedocs.io/
-  
-  
+  
+  
   CLUSTER EXECUTION:
   phables run ... --profile [profile]
   For information on Snakemake profiles see:
   https://snakemake.readthedocs.io/en/stable/executing/cli.html#profiles
-  
+  
   RUN EXAMPLES:
   Required:           phables run --input [assembly graph file]
   Specify threads:    phables run ... --threads [threads]
@@ -190,7 +175,6 @@ Options:
 * `--databases` - path to the databases directory [default: wherever `phables install` put them]
 * `--use-conda` / `--no-use-conda` - use conda for Snakemake rules  [default: `use-conda`]
 * `--conda-prefix` - custom conda env directory
-* `--container` - run the whole workflow from a single container image instead of per-rule conda envs (needs `--use-singularity`, and `--no-use-conda`) -- see [Running from a single container](container.md)
 * `--snake-default` - customise Snakemake runtime args  [default: `--rerun-incomplete, --printshellcmds, --nolock, --show-failed-logs`]
 
 ### Phage-gene detection: `--phagedetection`
@@ -213,7 +197,8 @@ Two independent methods for finding phage-like genes on unitigs, feeding the sam
 * `--prostt5-max-residues`, `--prostt5-max-seq-len`, `--prostt5-max-batch` - ProstT5 batching knobs, device-specific -- tune per GPU rather than trusting the defaults on unfamiliar hardware [defaults: 4000, 4000, 20]
 * `--gpu-backend` - which PyTorch build the ProstT5 conda env solves against: `cpu`, `cuda`, or `rocm` (e.g. Setonix's MI250X). Independent of `--prostt5-cpu`, which forces the CPU device at runtime even inside a GPU-capable env -- this controls which env gets *built* [default: `cpu`]
 * `--foldseek-gpu` - use Foldseek's CUDA GPU search mode for the hallmark scan. Requires `--gpu-backend cuda`, a CUDA-capable Foldseek build on `PATH` (not the plain bioconda package), and a `*_gpu`-suffixed, `makepaddedseqdb`-prepared hallmark DB
-* `--prostt5-container` - use a container with `pholdlib`+torch already installed (e.g. phold's own image) instead of a conda env for the ProstT5 step. Needs `--use-singularity` passed as a trailing Snakemake arg -- `--use-conda` alone won't honour it. Overrides `--gpu-backend` for this rule.
+
+To run all of this from one prebuilt image on HPC (Setonix), see [Running from a single container](container.md) — the image ships every conda env already built, so there are no per-rule container flags to pass.
 
 ## Example usage
 

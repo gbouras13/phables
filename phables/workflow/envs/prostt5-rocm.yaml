@@ -13,22 +13,23 @@ dependencies:
     # so every Python the `python>=3.10` pin above can resolve is covered --
     # 2.9.1 drops the cp39 wheel 2.7.1 had, which that pin already excludes).
     #
-    # NOTE this deliberately no longer matches the Pawsey base image the
-    # CONTAINER path uses (quay.io/pawsey/pytorch:2.7.1-rocm6.3.3, see
-    # container/Dockerfile, which bakes in and asserts torch 2.7.1). The two
-    # ROCm paths are now on different torch versions on purpose: the container
-    # takes whatever Pawsey verified, this conda env takes a newer torch. If
-    # you need them identical again, either rebuild the container from a newer
-    # Pawsey image or drop this back to 2.7.1.
+    # This env is the ONLY torch the workflow uses on ROCm, in both ways of
+    # running it. container/Dockerfile builds on Pawsey's ROCm base
+    # (quay.io/pawsey/pytorch:2.7.1-rocm6.3.3) for its ROCm userspace, but
+    # pre-builds THIS env inside the image and leaves the base's own
+    # system-python torch 2.7.1 untouched and unused -- so predict_3di runs on
+    # 2.9.1+rocm6.3 whether or not you're in the container. Keep it that way:
+    # the base image's torch version is an implementation detail of the base,
+    # not a version this workflow is pinned to.
     #
-    # Switched to this conda-env path instead of the --prostt5-container route
-    # after repeatedly hitting container-specific problems on Setonix that had
-    # nothing to do with phables/pholdlib itself: a broken torchaudio needing
-    # libomp.so, --home overriding the container's apparent CWD so relative
-    # output paths silently resolved to the wrong place, and a missing MIOpen
-    # AI-heuristic kernel-selection file for gfx90a. All real, all diagnosed,
-    # none of them things a plain conda env run directly on the host (no
-    # container namespace, no bind-mount surface) is exposed to at all.
+    # Phables drives ProstT5 through a plain conda env rather than pointing
+    # rules at a prebuilt torch container, after repeatedly hitting
+    # container-specific problems on Setonix that had nothing to do with
+    # phables/pholdlib itself: a broken torchaudio needing libomp.so, --home
+    # overriding the container's apparent CWD so relative output paths
+    # silently resolved to the wrong place, and a missing MIOpen AI-heuristic
+    # kernel-selection file for gfx90a. All real, all diagnosed, none of them
+    # things a conda env is exposed to.
     # >=2.6 would already avoid transformers' checkpoint loader refusing
     # torch.load() on older torch outright (CVE-2025-32434 hardening in
     # check_torch_load_is_safe, which broke loading Rostlab/ProstT5_fp16 -- no
