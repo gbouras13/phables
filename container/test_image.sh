@@ -110,10 +110,16 @@ for e in "$PREFIX"/*/; do
 done
 echo "OK: no pre-built env ships a duplicate torch"
 
-echo "=== image's default gpu_backend must be 'system' ==="
-CONFIG="$(python -c 'import phables, os; print(os.path.join(os.path.dirname(phables.__file__), "config", "config.yaml"))')"
-grep -q '^gpu_backend: system$' "$CONFIG" \
-    || { echo "ERROR: $CONFIG does not default gpu_backend to system" >&2; exit 1; }
-echo "OK: $CONFIG defaults to system"
+echo "=== --gpu-backend system must be available ==="
+# This, NOT a grep of config.yaml's gpu_backend value. An earlier version of
+# this script asserted the config file said "system" and passed happily, while
+# actual runs still used cpu: phables merges every CLI option over the config
+# (merge_config=kwargs), and --gpu-backend's click default is "cpu". The config
+# file value is simply not the effective value, so checking it proves nothing.
+# What the image can meaningfully guarantee is that the choice EXISTS -- the
+# caller is responsible for passing it (see docs/container.md).
+phables run -h 2>&1 | grep -q -- '--gpu-backend .*system' \
+    || { echo "ERROR: this phables has no --gpu-backend system choice" >&2; exit 1; }
+echo "OK: --gpu-backend system is accepted"
 
 echo "=== all image tests passed ==="

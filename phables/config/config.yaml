@@ -65,7 +65,12 @@ prostt5_cpu: False
 # known-good GPU torch instead of installing a second one. That's exactly the
 # situation inside container/Dockerfile, whose ROCm base image already ships a
 # working torch, and it's also how you'd use a module-loaded torch on HPC.
-# The image sets this as its own default (see container/Dockerfile).
+# Note this key cannot be usefully overridden by editing a config file: the
+# CLI hands every option to snaketool as merge_config=kwargs, so
+# --gpu-backend's click default ("cpu") is merged OVER whatever is written
+# here. Pass --gpu-backend on the command line instead. (Learned the hard way
+# by baking `system` into the container's config and watching runs still use
+# cpu -- see container/Dockerfile.)
 gpu_backend: cpu
 foldseek_gpu: False
 # Batch limits are device-specific -- the defaults are conservative CPU/laptop-MPS

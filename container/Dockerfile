@@ -83,18 +83,17 @@ RUN BASE_PY="$(cat /opt/base_python_path)" && \
     test "$TORCH_BEFORE" = "$TORCH_AFTER"
 
 #
-# Make `system` the image's own default GPU backend, so a plain
-# `phables run --phagedetection prostt5-foldseek` inside the container reuses
-# the base torch with no extra flag. Without this the config default (`cpu`)
-# would send predict_3di looking for a prostt5-cpu env that this image
-# deliberately does not contain -- and a .sif is read-only, so that is a hard
-# failure rather than a slow rebuild.
+# NOTE: there is deliberately NO step here patching config.yaml's gpu_backend
+# to `system`. An earlier version did exactly that, and it does not work:
+# phables passes every CLI option to snaketool as merge_config=kwargs, so any
+# option with a non-None click default is merged OVER the config file, and
+# --gpu-backend's click default is "cpu". The patched config was silently
+# ignored, Snakemake went to build a prostt5-cpu env that isn't in this image,
+# and the run died on the read-only .sif filesystem.
 #
-RUN BASE_PY="$(cat /opt/base_python_path)" && \
-    CONFIG="$("$BASE_PY" -c 'import phables, os; print(os.path.join(os.path.dirname(phables.__file__), "config", "config.yaml"))')" && \
-    sed -i 's/^gpu_backend: .*/gpu_backend: system/' "$CONFIG" && \
-    grep -q '^gpu_backend: system$' "$CONFIG" && \
-    echo "image default gpu_backend set to system in $CONFIG"
+# Callers must therefore pass `--gpu-backend system` explicitly. See
+# ../docs/container.md; mass_processing/run_phables_container.sh does this.
+#
 
 # Pre-build every per-rule conda env. See the script for the full rationale
 # (default --conda-prefix, placeholder databases, one pass per flag combo).

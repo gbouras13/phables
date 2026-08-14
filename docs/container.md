@@ -51,6 +51,7 @@ singularity exec --rocm \
         --output phables_out \
         --databases /scratch/.../all_databases/databases \
         --phagedetection prostt5-foldseek \
+        --gpu-backend system \
         --prostt5-checkpoint /scratch/.../model.pt \
         --threads 8
 ```
@@ -65,11 +66,15 @@ Notes that matter on Setonix:
   (inside the installed package), and Snakemake resolves an env by hashing its
   file content *together with the prefix path* — changing the prefix changes
   the hash, and Snakemake would try to rebuild into a read-only filesystem.
-- **Don't pass `--gpu-backend`.** The image defaults it to `system`, meaning
-  ProstT5 runs against the base image's own ROCm torch rather than a conda env.
-  Passing `rocm`/`cpu`/`cuda` would send it looking for a `prostt5-*` env that
-  this image deliberately does not contain — a hard failure on a read-only
-  `.sif`.
+- **Pass `--gpu-backend system` explicitly.** This is required, not optional.
+  phables merges every CLI option over the config file
+  (`merge_config=kwargs`), and `--gpu-backend`'s click default is `cpu` — so
+  the image's own `config.yaml` value is *not* the effective value and cannot
+  be relied on. Omitting the flag was tried and failed for real: the runtime
+  config showed `gpu_backend: cpu`, Snakemake went to build a `prostt5-cpu`
+  env that isn't in the image, and the run died with
+  `OSError: [Errno 30] Read-only file system`. Any backend other than
+  `system` fails the same way.
 
 ## What's in the image
 
