@@ -25,14 +25,15 @@ jobs:
       # keeps the runner's node/python toolcache so other actions (checkout,
       # docker login) still work fast.
       #
-      # NOTE this image is now MONOLITHIC -- on top of that base it installs
-      # miniforge and pre-builds every per-rule conda env, including two torch
-      # builds (rocm + cpu). That is several GB more than the base alone, and
-      # is close to what a hosted runner can do even after this cleanup. If a
-      # build starts failing on "no space left on device", the honest fix is
-      # building on a machine with real disk and pushing manually, not shaving
-      # more off here. The ``df -h`` steps below exist to make that diagnosis
-      # obvious rather than a guess.
+      # NOTE this image is MONOLITHIC -- on top of that base it installs
+      # miniforge and pre-builds every per-rule conda env. It deliberately does
+      # NOT build a prostt5-* env: predict_3di reuses the base image's own ROCm
+      # torch via --gpu-backend system, which keeps several GB out of the image.
+      # Even so this is close to what a hosted runner can manage after the
+      # cleanup below. If a build starts failing on "no space left on device",
+      # the honest fix is building on a machine with real disk and pushing
+      # manually, not shaving more off here. The ``df -h`` steps exist to make
+      # that diagnosis obvious rather than a guess.
       - name: Free up disk space
         uses: jlumbroso/free-disk-space@main
         with:
