@@ -73,6 +73,14 @@ prostt5_cpu: False
 # cpu -- see container/Dockerfile.)
 gpu_backend: cpu
 foldseek_gpu: False
+# Worker processes for the flow-decomposition step. Components are independent
+# of each other (no component's logic reads another's results), so they are
+# chunked across processes and merged in component order -- output is identical
+# to mfd_workers: 1, genome numbering included. Separate from `threads`: the
+# MILP solver gains nothing measurable from extra threads because building the
+# model, not solving it, dominates -- so concurrency has to come from running
+# components side by side instead.
+mfd_workers: 1
 # Batch limits are device-specific -- the defaults are conservative CPU/laptop-MPS
 # values, not tuned for any particular GPU. Retune per device (phold's autotune.py
 # is the reference approach) rather than trusting these at scale.

@@ -36,6 +36,7 @@ rule run_phables:
         hallmark_minbits = config["hallmark_minbits"],
         output = os.path.join(OUTDIR, "phables"),
         nthreads = config["resources"]["jobCPU"],
+        mfd_workers = MFD_WORKERS,
         log = os.path.join(LOGSDIR, "phables_output.log")
     threads:
         config["resources"]["jobCPU"]

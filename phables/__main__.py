@@ -347,6 +347,22 @@ def run_options(func):
             show_default=True,
         ),
         click.option(
+            "--mfd-workers",
+            default=1,
+            required=False,
+            help=(
+                "number of worker processes for the flow-decomposition step. "
+                "Components are independent, so they are split across workers "
+                "and merged in order (results are identical to --mfd-workers 1, "
+                "including genome numbering). 1 = sequential, as before. Note "
+                "this is separate from --threads: the MILP solver itself gets "
+                "no measurable benefit from extra threads, so parallelism has "
+                "to come from running components concurrently"
+            ),
+            type=int,
+            show_default=True,
+        ),
+        click.option(
             "--evalue",
             default=1e-10,
             required=False,

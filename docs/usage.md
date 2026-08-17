@@ -111,6 +111,17 @@ Options:
                                   batch immediately  [default: 4000]
   --prostt5-max-batch INTEGER     max sequences per ProstT5 batch -- device-
                                   specific, tune per GPU  [default: 20]
+  --mfd-workers INTEGER           number of worker processes for the flow-
+                                  decomposition step. Components are
+                                  independent, so they are split across
+                                  workers and merged in order (results are
+                                  identical to --mfd-workers 1, including
+                                  genome numbering). 1 = sequential, as
+                                  before. Note this is separate from
+                                  --threads: the MILP solver itself gets no
+                                  measurable benefit from extra threads, so
+                                  parallelism has to come from running
+                                  components concurrently  [default: 1]
   --evalue FLOAT                  maximum e-value for phrog annotations
                                   [default: 1e-10]
   --seqidentity FLOAT             minimum sequence identity for phrog
@@ -182,6 +193,7 @@ Options:
 * `--databases` - path to the databases directory [default: wherever `phables install` put them]
 * `--use-conda` / `--no-use-conda` - use conda for Snakemake rules  [default: `use-conda`]
 * `--conda-prefix` - custom conda env directory
+* `--mfd-workers` - worker processes for the flow-decomposition (MFD) step [default: 1]. Components are independent, so they're split across processes and merged in component order — output is identical to `1`, genome numbering included. Distinct from `--threads`: the MILP solver gains nothing measurable from extra threads (building the model dominates, not solving it), so speedup has to come from running components concurrently. Expect ~2–2.5x on a realistic component mix — a few large components dominate the runtime and can't be split
 * `--snake-default` - customise Snakemake runtime args  [default: `--rerun-incomplete, --printshellcmds, --nolock, --show-failed-logs`]
 
 ### Phage-gene detection: `--phagedetection`

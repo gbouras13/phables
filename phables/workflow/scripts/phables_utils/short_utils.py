@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import math
+from concurrent.futures import ProcessPoolExecutor
 import logging
 import sys
 import time
@@ -15,6 +17,12 @@ LEN_THRESHOLD = 0.95
 
 # Create logger
 logger = logging.getLogger("phables 2.0.0")
+
+# How many chunks to create per worker in resolve_short_parallel. >1 so the
+# pool can load-balance an uneven component workload; small enough that
+# per-chunk overhead stays negligible against per-component solve times
+# measured in tens of milliseconds.
+CHUNKS_PER_WORKER = 4
 
 
 def resolve_short(
@@ -1498,3 +1506,148 @@ def resolve_short(
         all_phage_like_edges,
         unresolved_phage_like_edges,
     )
+
+
+# Set once per worker process by _init_worker, so the heavy read-only inputs
+# (the assembly graph above all) cross the process boundary ONCE per worker
+# rather than once per chunk. Passing them as map() arguments instead would
+# re-pickle the whole graph for every chunk, which gets more expensive the more
+# chunks are used -- exactly backwards, since more chunks is what gives the pool
+# room to balance an uneven workload.
+_WORKER_KWARGS = None
+
+
+def _init_worker(kwargs):
+    global _WORKER_KWARGS
+    _WORKER_KWARGS = kwargs
+
+
+def _resolve_short_chunk(chunk):
+    """Worker entry point: one slice of components, nothing else.
+
+    Module-level (not a closure) so it is picklable by ProcessPoolExecutor.
+    """
+    return resolve_short(pruned_vs=chunk, **_WORKER_KWARGS)
+
+
+def resolve_short_parallel(
+    assembly_graph,
+    pruned_vs,
+    unitig_names,
+    unitig_names_rev,
+    self_looped_nodes,
+    graph_unitigs,
+    minlength,
+    link_overlap,
+    unitig_coverages,
+    compcount,
+    oriented_links,
+    junction_pe_coverage,
+    likely_complete,
+    alpha,
+    mincov,
+    covtol,
+    maxpaths,
+    prefix,
+    output,
+    nthreads,
+    workers=1,
+):
+    """
+    resolve_short, with components processed in parallel across processes.
+
+    Deliberately implemented WITHOUT touching resolve_short's ~1400-line body:
+    that function is already parameterised by the set of components to process
+    (`pruned_vs`) and already returns every accumulator it builds, so splitting
+    the components into contiguous chunks, running one chunk per worker, and
+    merging the returned tuples is equivalent to running it once over all of
+    them. The alternative -- extracting the loop body into a per-component
+    function -- would mean restructuring 1400 lines of nested branching for no
+    additional benefit.
+
+    This is only sound because no component's logic depends on another's
+    results. Verified against the body: every touch of a shared accumulator is
+    a pure `X.add(...)` / `X = X.union(...)` / `X.append(...)`, and there is not
+    one conditional or membership test against them anywhere in the loop --
+    per-component decisions use the loop-local `comp_*` sets instead. If that
+    ever stops being true, chunking silently changes results, so it is worth
+    re-checking before extending this.
+
+    Chunks are CONTIGUOUS and merged in chunk order, so `all_resolved_paths`
+    ends up in exactly the same order as the sequential run. That matters
+    because downstream naming numbers the genomes by position: a different
+    order would rename every genome without changing the biology, which is a
+    nasty kind of non-reproducibility.
+
+    Falls back to a plain sequential call for workers <= 1 or a single chunk,
+    so the default path is byte-for-byte the code that ran before.
+    """
+    kwargs = dict(
+        assembly_graph=assembly_graph,
+        unitig_names=unitig_names,
+        unitig_names_rev=unitig_names_rev,
+        self_looped_nodes=self_looped_nodes,
+        graph_unitigs=graph_unitigs,
+        minlength=minlength,
+        link_overlap=link_overlap,
+        unitig_coverages=unitig_coverages,
+        compcount=compcount,
+        oriented_links=oriented_links,
+        junction_pe_coverage=junction_pe_coverage,
+        likely_complete=likely_complete,
+        alpha=alpha,
+        mincov=mincov,
+        covtol=covtol,
+        maxpaths=maxpaths,
+        prefix=prefix,
+        output=output,
+        # Each worker is its own process, so the MILP solver inside it should
+        # not also try to use every core -- that would oversubscribe by
+        # workers x nthreads. Profiling showed solver threads make no
+        # measurable difference anyway (model construction dominates), so 1 is
+        # the right per-worker value rather than a compromise.
+        nthreads=1,
+    )
+
+    keys = list(pruned_vs)
+    if workers <= 1 or len(keys) <= 1:
+        return resolve_short(pruned_vs=pruned_vs, **{**kwargs, "nthreads": nthreads})
+
+    workers = min(workers, len(keys))
+
+    # Deliberately MORE chunks than workers. Component cost is heavily skewed --
+    # a handful of large components dominate, and which ones is not known in
+    # advance -- so splitting into exactly one chunk per worker (static
+    # partitioning) lets a single worker draw several expensive components while
+    # the rest sit idle. Smaller chunks let the pool hand out more work to
+    # whichever process finishes first. The usual cost of small chunks,
+    # re-sending the inputs each time, does not apply here: _init_worker sends
+    # them once per worker instead.
+    size = max(1, math.ceil(len(keys) / (workers * CHUNKS_PER_WORKER)))
+    chunks = [
+        {k: pruned_vs[k] for k in keys[i : i + size]} for i in range(0, len(keys), size)
+    ]
+
+    logger.info(
+        f"Resolving {len(keys)} components across {workers} worker process(es) "
+        f"in {len(chunks)} chunk(s)"
+    )
+
+    with ProcessPoolExecutor(
+        max_workers=workers, initializer=_init_worker, initargs=(kwargs,)
+    ) as executor:
+        # .map preserves input order, which is what keeps the merged
+        # all_resolved_paths identical to the sequential run.
+        results = list(executor.map(_resolve_short_chunk, chunks))
+
+    # Field 1 (all_resolved_paths) and field 2 (all_components) are lists and
+    # are extended; every other field is a set and is unioned. Merged in chunk
+    # order for the reason given above.
+    merged = list(results[0])
+    for result in results[1:]:
+        for i, value in enumerate(result):
+            if isinstance(value, list):
+                merged[i] = merged[i] + value
+            else:
+                merged[i] = merged[i] | value
+    return tuple(merged)
