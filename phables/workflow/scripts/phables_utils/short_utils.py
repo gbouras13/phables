@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import pickle
 from concurrent.futures import ProcessPoolExecutor
 import logging
 import sys
@@ -1611,6 +1612,24 @@ def resolve_short_parallel(
 
     keys = list(pruned_vs)
     if workers <= 1 or len(keys) <= 1:
+        return resolve_short(pruned_vs=pruned_vs, **{**kwargs, "nthreads": nthreads})
+
+    # Everything below has to cross a process boundary, so it all has to pickle.
+    # Checked up front rather than discovered when the pool starts: a failure
+    # there aborts the whole phables run, and losing a completed assembly to a
+    # performance optimisation is a bad trade. Hit for real -- oriented_links
+    # was a defaultdict built with a lambda, which cannot be pickled (fixed at
+    # source in edge_graph_utils._oriented_links_inner), and it took out a real
+    # 120-component run. Falling back to the sequential path keeps that a slow
+    # run instead of a failed one.
+    try:
+        pickle.dumps(kwargs)
+    except Exception as e:
+        logger.warning(
+            f"Cannot run components in parallel -- some input is not picklable "
+            f"({type(e).__name__}: {e}). Falling back to sequential; the result "
+            f"is unaffected, only the runtime."
+        )
         return resolve_short(pruned_vs=pruned_vs, **{**kwargs, "nthreads": nthreads})
 
     workers = min(workers, len(keys))
