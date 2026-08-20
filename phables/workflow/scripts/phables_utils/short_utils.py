@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import multiprocessing
 import pickle
 from concurrent.futures import ProcessPoolExecutor
 import logging
@@ -1509,24 +1510,26 @@ def resolve_short(
     )
 
 
-# Set once per worker process by _init_worker, so the heavy read-only inputs
-# (the assembly graph above all) cross the process boundary ONCE per worker
-# rather than once per chunk. Passing them as map() arguments instead would
-# re-pickle the whole graph for every chunk, which gets more expensive the more
-# chunks are used -- exactly backwards, since more chunks is what gives the pool
-# room to balance an uneven workload.
+# Set in the PARENT before the pool is created; forked workers inherit it
+# through the process image, so none of it is ever serialised.
+#
+# This was previously passed as ProcessPoolExecutor(initargs=(kwargs,)), which
+# pickles the whole thing once per worker. That is fine for a small graph and
+# fatal for a real one: on a 485k-vertex assembly the payload is the igraph
+# object plus every unitig's sequence in graph_unitigs -- gigabytes, serialised
+# eight times through a pipe. It killed the pool seconds after startup, and
+# multiprocessing additionally cannot send a single object larger than ~2GB at
+# all. Inheriting by fork moves that cost to zero, and copy-on-write means the
+# eight workers share the pages rather than each holding a full copy.
 _WORKER_KWARGS = None
-
-
-def _init_worker(kwargs):
-    global _WORKER_KWARGS
-    _WORKER_KWARGS = kwargs
 
 
 def _resolve_short_chunk(chunk):
     """Worker entry point: one slice of components, nothing else.
 
-    Module-level (not a closure) so it is picklable by ProcessPoolExecutor.
+    Module-level (not a closure) so it is picklable by ProcessPoolExecutor --
+    though only the small `chunk` is ever pickled; the bulk inputs arrive via
+    _WORKER_KWARGS, inherited from the parent.
     """
     return resolve_short(pruned_vs=chunk, **_WORKER_KWARGS)
 
@@ -1634,14 +1637,35 @@ def resolve_short_parallel(
 
     workers = min(workers, len(keys))
 
+    # Workers must INHERIT the bulk inputs rather than be sent them. On a real
+    # assembly those inputs are gigabytes (see _WORKER_KWARGS), and pickling
+    # them per worker is both ruinously slow and subject to multiprocessing's
+    # ~2GB per-object ceiling. Fork gives the children the parent's memory
+    # image directly, at no serialisation cost and, thanks to copy-on-write,
+    # very little extra memory.
+    #
+    # If fork is unavailable (Windows; macOS defaults to spawn but can still
+    # fork explicitly) there is no cheap way to hand over that much data, so
+    # this runs sequentially rather than attempting a copy that would either
+    # fail outright or exhaust the node's memory.
+    try:
+        mp_context = multiprocessing.get_context("fork")
+    except ValueError:
+        logger.warning(
+            "The 'fork' start method is unavailable, so component-level "
+            "parallelism would have to copy the whole assembly graph to every "
+            "worker. Running sequentially instead; the result is unaffected, "
+            "only the runtime."
+        )
+        return resolve_short(pruned_vs=pruned_vs, **{**kwargs, "nthreads": nthreads})
+
     # Deliberately MORE chunks than workers. Component cost is heavily skewed --
     # a handful of large components dominate, and which ones is not known in
     # advance -- so splitting into exactly one chunk per worker (static
     # partitioning) lets a single worker draw several expensive components while
     # the rest sit idle. Smaller chunks let the pool hand out more work to
-    # whichever process finishes first. The usual cost of small chunks,
-    # re-sending the inputs each time, does not apply here: _init_worker sends
-    # them once per worker instead.
+    # whichever process finishes first, and cost nothing extra to send, since
+    # only the chunk itself crosses the boundary.
     size = max(1, math.ceil(len(keys) / (workers * CHUNKS_PER_WORKER)))
     chunks = [
         {k: pruned_vs[k] for k in keys[i : i + size]} for i in range(0, len(keys), size)
@@ -1652,12 +1676,31 @@ def resolve_short_parallel(
         f"in {len(chunks)} chunk(s)"
     )
 
-    with ProcessPoolExecutor(
-        max_workers=workers, initializer=_init_worker, initargs=(kwargs,)
-    ) as executor:
-        # .map preserves input order, which is what keeps the merged
-        # all_resolved_paths identical to the sequential run.
-        results = list(executor.map(_resolve_short_chunk, chunks))
+    # Published to the module namespace BEFORE the pool exists, so every forked
+    # child sees it. Cleared afterwards so the parent does not keep a second
+    # reference to the graph alive for the rest of the run.
+    global _WORKER_KWARGS
+    _WORKER_KWARGS = kwargs
+    try:
+        with ProcessPoolExecutor(
+            max_workers=workers, mp_context=mp_context
+        ) as executor:
+            # .map preserves input order, which is what keeps the merged
+            # all_resolved_paths identical to the sequential run.
+            results = list(executor.map(_resolve_short_chunk, chunks))
+    except Exception as e:
+        # A worker dying (OOM above all -- eight processes touching a large
+        # graph can outgrow the node) surfaces here as BrokenProcessPool. Better
+        # to spend the extra wall-clock than to lose an assembly that already
+        # cost hours, so this retries the whole thing sequentially.
+        logger.warning(
+            f"Parallel component resolution failed ({type(e).__name__}: {e}). "
+            f"Falling back to sequential -- the result is unaffected, only the "
+            f"runtime. If this is memory, lower --mfd-workers."
+        )
+        return resolve_short(pruned_vs=pruned_vs, **{**kwargs, "nthreads": nthreads})
+    finally:
+        _WORKER_KWARGS = None
 
     # Field 1 (all_resolved_paths) and field 2 (all_components) are lists and
     # are extended; every other field is a set and is unioned. Merged in chunk
